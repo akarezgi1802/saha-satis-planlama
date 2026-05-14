@@ -780,71 +780,149 @@ function RoutesTab({ results, stList }) {
     .filter((r) => r.day_of_week === filterDay)
     .sort((a, b) => a.day_of_week - b.day_of_week);
 
+  const isMobile = window.innerWidth <= 768;
+
+  // Harita için tüm durakları topla
+  const allStops = filtered.flatMap((r) => r.stops || []);
+  const mapCenter = allStops.length > 0
+    ? [allStops.reduce((s, p) => s + p.x, 0) / allStops.length, allStops.reduce((s, p) => s + p.y, 0) / allStops.length]
+    : [38.6, 27.4];
+
   return (
     <div>
-      <div style={{ display: "flex", gap: 12, marginBottom: 16, flexWrap: "wrap" }}>
-        <div>
+      {/* Filtreler */}
+      <div style={{ display: "flex", gap: 10, marginBottom: 16, flexWrap: "wrap" }}>
+        <div style={{ flex: 1, minWidth: 120 }}>
           <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 4 }}>Satış Temsilcisi</div>
-          <div className="seg-bar">
-            {stList.map((ci) => (
-              <button key={ci} className={`seg-item ${filterST === ci ? "active" : ""}`} onClick={() => setFilterST(ci)}>
-                ST {ci}
-              </button>
-            ))}
-          </div>
+          {isMobile ? (
+            <select className="form-input" value={filterST} onChange={(e) => setFilterST(Number(e.target.value))} style={{ width: "100%" }}>
+              {stList.map((ci) => <option key={ci} value={ci}>ST {ci}</option>)}
+            </select>
+          ) : (
+            <div className="seg-bar">
+              {stList.map((ci) => (
+                <button key={ci} className={`seg-item ${filterST === ci ? "active" : ""}`} onClick={() => setFilterST(ci)}>ST {ci}</button>
+              ))}
+            </div>
+          )}
         </div>
-        <div>
+        <div style={{ flex: 1, minWidth: 120 }}>
           <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 4 }}>Gün</div>
-          <div className="seg-bar">
-            {[1, 2, 3, 4, 5, 6].map((d) => (
-              <button key={d} className={`seg-item ${filterDay === d ? "active" : ""}`} onClick={() => setFilterDay(d)}>
-                {DAY_SHORT[d]}
-              </button>
-            ))}
-          </div>
+          {isMobile ? (
+            <select className="form-input" value={filterDay} onChange={(e) => setFilterDay(Number(e.target.value))} style={{ width: "100%" }}>
+              {[1, 2, 3, 4, 5, 6].map((d) => <option key={d} value={d}>{DAY_NAMES[d]}</option>)}
+            </select>
+          ) : (
+            <div className="seg-bar">
+              {[1, 2, 3, 4, 5, 6].map((d) => (
+                <button key={d} className={`seg-item ${filterDay === d ? "active" : ""}`} onClick={() => setFilterDay(d)}>{DAY_SHORT[d]}</button>
+              ))}
+            </div>
+          )}
         </div>
       </div>
+
       {filtered.length === 0 ? (
         <div className="panel"><div className="empty-state"><p>Seçilen filtre için rota bulunamadı.</p></div></div>
       ) : (
-        filtered.map((route, i) => (
-          <div key={i} className="panel">
-            <div className="panel-header">
-              <h3 style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <span className="cluster-dot" style={{ background: COLORS[route.cluster_index % COLORS.length], margin: 0 }} />
-                ST {route.cluster_index} — {route.day_name}
-              </h3>
-              <span className="panel-info">{route.customer_count} müşteri · {route.total_distance?.toFixed(2)} km</span>
+        filtered.map((route, ri) => {
+          const color = COLORS[route.cluster_index % COLORS.length];
+          const routeCoords = (route.stops || []).map((s) => [s.x, s.y]);
+
+          return (
+            <div key={ri}>
+              {/* Rota başlık */}
+              <div className="panel" style={{ marginBottom: 12 }}>
+                <div className="panel-header">
+                  <h3 style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span className="cluster-dot" style={{ background: color, margin: 0 }} />
+                    ST {route.cluster_index} — {route.day_name}
+                  </h3>
+                  <span className="panel-info">{route.customer_count} müşteri · {route.total_distance?.toFixed(2)} km</span>
+                </div>
+
+                {/* Harita */}
+                <div style={{ height: isMobile ? 250 : 350 }}>
+                  <MapContainer center={mapCenter} zoom={13} style={{ height: "100%", width: "100%" }}>
+                    <TileLayer url="https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}" attribution="&copy; Google Maps" />
+                    {routeCoords.length > 1 && <Polyline positions={routeCoords} color={color} weight={3} opacity={0.8} dashArray="8 4" />}
+                    {(route.stops || []).map((s) => (
+                      <Marker key={s.visit_order} position={[s.x, s.y]} icon={makeNumberIcon(s.visit_order, color)}>
+                        <Popup>
+                          <div style={{ fontSize: 13 }}>
+                            <strong>{s.customer_name}</strong><br />
+                            Sıra: {s.visit_order}
+                            {s.estimated_arrival_minutes != null && <><br />Varış: {s.estimated_arrival_minutes.toFixed(0)} dk</>}
+                          </div>
+                        </Popup>
+                      </Marker>
+                    ))}
+                  </MapContainer>
+                </div>
+
+                {/* Durak listesi — mobilde kart, masaüstünde tablo */}
+                {isMobile ? (
+                  <div style={{ padding: 12 }}>
+                    {(route.stops || []).map((s) => (
+                      <div key={s.visit_order} style={{
+                        display: "flex", alignItems: "center", gap: 10,
+                        padding: "10px 0", borderBottom: "1px solid var(--border-light)",
+                      }}>
+                        <span style={{
+                          display: "inline-flex", alignItems: "center", justifyContent: "center",
+                          width: 28, height: 28, borderRadius: "50%", background: color,
+                          fontSize: 12, fontWeight: 800, color: "#fff", flexShrink: 0,
+                        }}>{s.visit_order}</span>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontWeight: 700, fontSize: 13 }}>{s.customer_name}</div>
+                          <div style={{ fontSize: 11, color: "var(--text-secondary)" }}>
+                            {s.estimated_arrival_minutes != null ? `${s.estimated_arrival_minutes.toFixed(0)} dk` : ""}
+                          </div>
+                        </div>
+                        <a href={`https://www.google.com/maps/dir/?api=1&destination=${s.x},${s.y}`}
+                          target="_blank" rel="noopener noreferrer"
+                          style={{
+                            background: "var(--brand-gradient)", color: "#fff", border: "none",
+                            borderRadius: 8, padding: "6px 12px", fontSize: 11, fontWeight: 700,
+                            textDecoration: "none", whiteSpace: "nowrap", flexShrink: 0,
+                          }}>
+                          Yol Tarifi
+                        </a>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <table>
+                    <thead>
+                      <tr><th>Sıra</th><th>Müşteri</th><th>Tahmini Varış</th><th>Navigasyon</th></tr>
+                    </thead>
+                    <tbody>
+                      {(route.stops || []).map((s) => (
+                        <tr key={s.visit_order}>
+                          <td>
+                            <span style={{
+                              display: "inline-flex", alignItems: "center", justifyContent: "center",
+                              width: 24, height: 24, borderRadius: "50%", background: color,
+                              fontSize: 11, fontWeight: 700, color: "#fff",
+                            }}>{s.visit_order}</span>
+                          </td>
+                          <td className="cell-bold">{s.customer_name}</td>
+                          <td className="cell-mono">{s.estimated_arrival_minutes != null ? `${s.estimated_arrival_minutes.toFixed(0)} dk` : "—"}</td>
+                          <td>
+                            <a href={`https://www.google.com/maps/dir/?api=1&destination=${s.x},${s.y}`}
+                              target="_blank" rel="noopener noreferrer" className="btn btn-emphasized btn-xs">
+                              Yol Tarifi
+                            </a>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
             </div>
-            <table>
-              <thead>
-                <tr><th>Sıra</th><th>Müşteri</th><th>Koordinat</th><th>Tahmini Varış</th><th>Navigasyon</th></tr>
-              </thead>
-              <tbody>
-                {route.stops.map((s) => (
-                  <tr key={s.visit_order}>
-                    <td>
-                      <span style={{
-                        display: "inline-flex", alignItems: "center", justifyContent: "center",
-                        width: 24, height: 24, borderRadius: "50%", background: "#f0f0f0",
-                        fontSize: 11, fontWeight: 700, color: "var(--text-secondary)",
-                      }}>{s.visit_order}</span>
-                    </td>
-                    <td className="cell-bold">{s.customer_name}</td>
-                    <td className="cell-mono">{s.x.toFixed(6)}, {s.y.toFixed(6)}</td>
-                    <td className="cell-mono">{s.estimated_arrival_minutes != null ? `${s.estimated_arrival_minutes.toFixed(0)} dk` : "—"}</td>
-                    <td>
-                      <a href={`https://www.google.com/maps/dir/?api=1&destination=${s.x},${s.y}`}
-                        target="_blank" rel="noopener noreferrer" className="btn btn-emphasized btn-xs">
-                        Yol Tarifi
-                      </a>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ))
+          );
+        })
       )}
     </div>
   );
