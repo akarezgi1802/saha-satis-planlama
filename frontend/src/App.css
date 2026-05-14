@@ -1126,10 +1126,20 @@ tbody tr:last-child td { border-bottom: none; }
   display: none;
 }
 
+/* Harita container — varsayılan yükseklik */
+.map-container-responsive {
+  height: 380px;
+}
+
 /* ═══════════════════════════════════════════
    MOBILE RESPONSIVE
    ═══════════════════════════════════════════ */
 @media (max-width: 768px) {
+
+  /* Haritalar mobilde küçük */
+  .map-container-responsive {
+    height: 250px !important;
+  }
   html { font-size: 14px; }
 
   /* Tüm sayfanın taşmasını engelle */

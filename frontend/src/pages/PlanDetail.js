@@ -253,7 +253,7 @@ function PipelineProgress({ currentStep, elapsed }) {
                 {i > 0 && (
                   <div className={`progress-step-line ${isDone || isActive ? "done" : ""}`} style={{ flex: 1, marginTop: 16 }} />
                 )}
-                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", width: 120, flexShrink: 0 }}>
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", width: window.innerWidth <= 768 ? 80 : 120, flexShrink: 0 }}>
                   <div className={`progress-step-circle ${isDone ? "done" : isActive ? "active" : "pending"}`}>
                     {isDone ? "✓" : i + 1}
                   </div>
@@ -363,7 +363,7 @@ function ClustersTab({ results, stList, users, depot }) {
           <h3>{filterST !== null ? `Küme ${filterST} — Harita` : "Tüm Kümeler — Harita"}</h3>
           <span className="panel-info">{mapPoints.length} müşteri</span>
         </div>
-        <div style={{ height: 400 }}>
+        <div style={{ height: window.innerWidth <= 768 ? 280 : 400 }}>
           <MapContainer center={mapCenter} zoom={12} style={{ height: "100%", width: "100%" }} key={`cluster-map-${filterST}`}>
             <TileLayer url="https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}" attribution="&copy; Google Maps" />
             {mapPoints.map((p, i) => (
@@ -478,7 +478,7 @@ function ChartsTab({ results }) {
     <div className="grid-2">
       <div className="chart-panel">
         <h3>ST Bazlı Müşteri Sayısı</h3>
-        <ResponsiveContainer width="100%" height={280}>
+        <ResponsiveContainer width="100%" height={window.innerWidth <= 768 ? 200 : 280}>
           <BarChart data={clusterChartData}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--border-light)" />
             <XAxis dataKey="name" tick={{ fontSize: 12 }} />
@@ -490,7 +490,7 @@ function ChartsTab({ results }) {
       </div>
       <div className="chart-panel">
         <h3>ST Bazlı Ciro Dağılımı</h3>
-        <ResponsiveContainer width="100%" height={280}>
+        <ResponsiveContainer width="100%" height={window.innerWidth <= 768 ? 200 : 280}>
           <PieChart>
             <Pie data={clusterChartData} dataKey="revenue" nameKey="name" cx="50%" cy="50%" outerRadius={95} innerRadius={50}
               label={({ name, percent }) => `${name} %${(percent * 100).toFixed(0)}`} labelLine={{ strokeWidth: 1 }}>
@@ -502,7 +502,7 @@ function ChartsTab({ results }) {
       </div>
       <div className="chart-panel">
         <h3>Gün Bazlı Toplam Mesafe</h3>
-        <ResponsiveContainer width="100%" height={280}>
+        <ResponsiveContainer width="100%" height={window.innerWidth <= 768 ? 200 : 280}>
           <BarChart data={dayChartData}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--border-light)" />
             <XAxis dataKey="name" tick={{ fontSize: 12 }} /><YAxis tick={{ fontSize: 12 }} /><Tooltip />
@@ -512,7 +512,7 @@ function ChartsTab({ results }) {
       </div>
       <div className="chart-panel">
         <h3>Gün Bazlı Ziyaret Sayısı</h3>
-        <ResponsiveContainer width="100%" height={280}>
+        <ResponsiveContainer width="100%" height={window.innerWidth <= 768 ? 200 : 280}>
           <BarChart data={dayChartData}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--border-light)" />
             <XAxis dataKey="name" tick={{ fontSize: 12 }} /><YAxis tick={{ fontSize: 12 }} /><Tooltip />
@@ -632,7 +632,7 @@ function DailyTab({ results, stList, depot }) {
         </div>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+      <div style={{ display: "grid", gridTemplateColumns: window.innerWidth <= 768 ? "1fr" : "1fr 1fr", gap: 16 }}>
         <div className="panel" style={{ marginBottom: 0 }}>
           <div className="panel-header">
             <h3>
@@ -643,7 +643,7 @@ function DailyTab({ results, stList, depot }) {
               <span className="panel-info">{route.customer_count} müşteri · {route.total_distance?.toFixed(2)} km</span>
             )}
           </div>
-          <div style={{ height: 400 }}>
+          <div style={{ height: window.innerWidth <= 768 ? 280 : 400 }}>
             <MapContainer center={center} zoom={13} style={{ height: "100%", width: "100%" }} key={`${selST}-${selDay}`}>
               <TileLayer url="https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}" attribution='&copy; Google Maps' />
               {route && route.stops.map((s) => (

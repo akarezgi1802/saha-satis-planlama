@@ -66,7 +66,7 @@ export default function Profile({ user, onUserUpdate }) {
         <h1>Profil Ayarları</h1>
       </div>
       <div className="page-body">
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, maxWidth: 900 }}>
+        <div style={{ display: "grid", gridTemplateColumns: window.innerWidth <= 768 ? "1fr" : "1fr 1fr", gap: 16, maxWidth: 900 }}>
           <div className="panel">
             <div className="panel-header"><h3>Kişisel Bilgiler</h3></div>
             <div style={{ padding: 20 }}>
@@ -118,7 +118,7 @@ export default function Profile({ user, onUserUpdate }) {
 
         <div className="panel" style={{ maxWidth: 900, marginTop: 16 }}>
           <div className="panel-header"><h3>Hesap Bilgileri</h3></div>
-          <div style={{ padding: 20, display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 20 }}>
+          <div style={{ padding: 20, display: "grid", gridTemplateColumns: window.innerWidth <= 768 ? "1fr" : "1fr 1fr 1fr", gap: window.innerWidth <= 768 ? 12 : 20 }}>
             <div>
               <div style={{ fontSize: 12, color: "#94a3b8", marginBottom: 4 }}>Rol</div>
               <div style={{ fontWeight: 600 }}>{user?.role === "admin" ? "Yönetici" : "Satış Temsilcisi"}</div>

@@ -93,7 +93,7 @@ export default function Announcements() {
                     placeholder="Duyuru başlığı..."
                   />
                 </div>
-                <div className="form-group" style={{ width: 180, marginBottom: 0 }}>
+                <div className="form-group" style={{ width: "100%", maxWidth: 180, marginBottom: 0 }}>
                   <label>Kategori</label>
                   <select
                     className="form-input"

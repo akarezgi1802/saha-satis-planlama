@@ -163,7 +163,7 @@ export default function Dashboard() {
           {completedPlans.length > 0 && (
             <select
               className="form-input"
-              style={{ width: 240 }}
+              style={{ width: "100%", maxWidth: 240 }}
               value={selectedPlan || ""}
               onChange={(e) => setSelectedPlan(Number(e.target.value))}
             >
@@ -228,7 +228,7 @@ export default function Dashboard() {
             <div className="grid-2">
               <div className="panel" style={{ marginBottom: 0 }}>
                 <div className="panel-header"><h3>Bölge Haritası</h3></div>
-                <div style={{ height: 380 }}>
+                <div className="map-container-responsive">
                   <MapContainer center={mapCenter} zoom={12} style={{ height: "100%", width: "100%" }} key={selectedPlan}>
                     <TileLayer url="https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}" attribution="&copy; Google Maps" />
                     {results.clusters.map((p, i) => (
@@ -255,7 +255,7 @@ export default function Dashboard() {
                   <h3>Bölge Dağılımı</h3>
                   <span className="panel-info">{results.clusters.length} müşteri</span>
                 </div>
-                <ResponsiveContainer width="100%" height={380}>
+                <ResponsiveContainer width="100%" height={window.innerWidth <= 768 ? 250 : 380}>
                   <PieChart>
                     <defs>
                       {COLORS.map((c, i) => (
@@ -270,7 +270,7 @@ export default function Dashboard() {
                       dataKey="count"
                       nameKey="name"
                       cx="50%" cy="50%"
-                      outerRadius={120} innerRadius={60}
+                      outerRadius={window.innerWidth <= 768 ? 75 : 120} innerRadius={window.innerWidth <= 768 ? 35 : 60}
                       paddingAngle={2}
                       label={renderPieLabel}
                       labelLine={{ stroke: "#94a3b8", strokeWidth: 1 }}
@@ -292,7 +292,7 @@ export default function Dashboard() {
                   <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: "#1e293b" }}>ST Bazlı Ciro Dağılımı</h3>
                   <p style={{ margin: "4px 0 0", fontSize: 12, color: "#94a3b8" }}>Her bölgenin aylık toplam cirosu</p>
                 </div>
-                <ResponsiveContainer width="100%" height={300}>
+                <ResponsiveContainer width="100%" height={window.innerWidth <= 768 ? 200 : 300}>
                   <BarChart data={clusterData} margin={{ top: 20, right: 24, left: 8, bottom: 8 }}>
                     <defs>
                       <linearGradient id="barGradRevenue" x1="0" y1="0" x2="0" y2="1">
@@ -304,7 +304,7 @@ export default function Dashboard() {
                     <XAxis dataKey="name" tick={{ fontSize: 12, fill: "#64748b" }} axisLine={false} tickLine={false} />
                     <YAxis tick={{ fontSize: 11, fill: "#94a3b8" }} tickFormatter={fmtCurrency} axisLine={false} tickLine={false} />
                     <Tooltip content={<CustomTooltip suffix="₺" />} cursor={{ fill: "#f8fafc" }} />
-                    <Bar dataKey="revenue" name="Ciro" fill="url(#barGradRevenue)" radius={[8, 8, 0, 0]} barSize={36} />
+                    <Bar dataKey="revenue" name="Ciro" fill="url(#barGradRevenue)" radius={[8, 8, 0, 0]} barSize={window.innerWidth <= 768 ? 18 : 36} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -314,7 +314,7 @@ export default function Dashboard() {
                   <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: "#1e293b" }}>Bölge Müşteri Dağılımı</h3>
                   <p style={{ margin: "4px 0 0", fontSize: 12, color: "#94a3b8" }}>Her bölgedeki müşteri sayısı</p>
                 </div>
-                <ResponsiveContainer width="100%" height={300}>
+                <ResponsiveContainer width="100%" height={window.innerWidth <= 768 ? 200 : 300}>
                   <BarChart data={clusterData} margin={{ top: 20, right: 24, left: 8, bottom: 8 }}>
                     <defs>
                       <linearGradient id="barGradCustomer" x1="0" y1="0" x2="0" y2="1">
@@ -326,7 +326,7 @@ export default function Dashboard() {
                     <XAxis dataKey="name" tick={{ fontSize: 12, fill: "#64748b" }} axisLine={false} tickLine={false} />
                     <YAxis tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} allowDecimals={false} />
                     <Tooltip content={<CustomTooltip suffix="müşteri" />} cursor={{ fill: "#f8fafc" }} />
-                    <Bar dataKey="count" name="Müşteri" fill="url(#barGradCustomer)" radius={[8, 8, 0, 0]} barSize={36} />
+                    <Bar dataKey="count" name="Müşteri" fill="url(#barGradCustomer)" radius={[8, 8, 0, 0]} barSize={window.innerWidth <= 768 ? 18 : 36} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -339,7 +339,7 @@ export default function Dashboard() {
                   <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: "#1e293b" }}>Gün Bazlı Toplam Mesafe</h3>
                   <p style={{ margin: "4px 0 0", fontSize: 12, color: "#94a3b8" }}>Tüm ST'lerin günlük toplam mesafesi (km)</p>
                 </div>
-                <ResponsiveContainer width="100%" height={280}>
+                <ResponsiveContainer width="100%" height={window.innerWidth <= 768 ? 200 : 280}>
                   <AreaChart data={dayData} margin={{ top: 20, right: 24, left: 8, bottom: 8 }}>
                     <defs>
                       <linearGradient id="gradDistance" x1="0" y1="0" x2="0" y2="1">
@@ -366,7 +366,7 @@ export default function Dashboard() {
                   <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: "#1e293b" }}>Gün Bazlı Ziyaret Sayısı</h3>
                   <p style={{ margin: "4px 0 0", fontSize: 12, color: "#94a3b8" }}>Tüm ST'lerin günlük toplam müşteri ziyareti</p>
                 </div>
-                <ResponsiveContainer width="100%" height={280}>
+                <ResponsiveContainer width="100%" height={window.innerWidth <= 768 ? 200 : 280}>
                   <AreaChart data={dayData} margin={{ top: 20, right: 24, left: 8, bottom: 8 }}>
                     <defs>
                       <linearGradient id="gradVisits" x1="0" y1="0" x2="0" y2="1">
@@ -395,7 +395,7 @@ export default function Dashboard() {
                 <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: "#1e293b" }}>ST Bazlı Günlük Ziyaret Sayısı</h3>
                 <p style={{ margin: "4px 0 0", fontSize: 12, color: "#94a3b8" }}>Her satış temsilcisinin günlere göre ziyaret ettiği müşteri sayısı</p>
               </div>
-              <ResponsiveContainer width="100%" height={320}>
+              <ResponsiveContainer width="100%" height={window.innerWidth <= 768 ? 220 : 320}>
                 <BarChart data={stDayData} margin={{ top: 20, right: 24, left: 8, bottom: 8 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
                   <XAxis dataKey="name" tick={{ fontSize: 12, fill: "#64748b" }} axisLine={false} tickLine={false} />
@@ -403,7 +403,7 @@ export default function Dashboard() {
                   <Tooltip content={<CustomTooltip suffix="müşteri" />} />
                   <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12, paddingTop: 8 }} />
                   {stList.map((ci, i) => (
-                    <Bar key={ci} dataKey={`ST ${ci}`} name={`ST ${ci}`} fill={COLORS[ci % COLORS.length]} radius={[4, 4, 0, 0]} barSize={28} />
+                    <Bar key={ci} dataKey={`ST ${ci}`} name={`ST ${ci}`} fill={COLORS[ci % COLORS.length]} radius={[4, 4, 0, 0]} barSize={window.innerWidth <= 768 ? 14 : 28} />
                   ))}
                 </BarChart>
               </ResponsiveContainer>

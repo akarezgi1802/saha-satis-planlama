@@ -79,7 +79,7 @@ export default function MyPlan() {
         <h1>Benim Planım — Bölge {user.cluster_index + 1}</h1>
         <div className="toolbar-actions">
           {plans.length > 0 && (
-            <select className="form-input" style={{ width: 220 }} value={selectedPlan || ""} onChange={(e) => setSelectedPlan(Number(e.target.value))}>
+            <select className="form-input" style={{ width: "100%", maxWidth: 220 }} value={selectedPlan || ""} onChange={(e) => setSelectedPlan(Number(e.target.value))}>
               {plans.map((p) => (
                 <option key={p.id} value={p.id}>{p.name}</option>
               ))}
@@ -182,7 +182,7 @@ function WeeklyPlanTab({ data }) {
             placeholder="Müşteri adına göre filtrele..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            style={{ maxWidth: 360 }}
+            style={{ maxWidth: window.innerWidth <= 768 ? "100%" : 360 }}
           />
         </div>
         <div style={{ overflowX: "auto" }}>
@@ -285,7 +285,7 @@ function DailyPlanTab({ data, depot, days, selectedDay, setSelectedDay }) {
           <div className="panel-header">
             <h3>{DAY_NAMES[selectedDay]} — Rota Haritası</h3>
           </div>
-          <div style={{ height: 450 }}>
+          <div style={{ height: window.innerWidth <= 768 ? 300 : 450 }}>
             <MapContainer center={mapCenter} zoom={12} style={{ height: "100%", width: "100%" }}>
               <TileLayer url="https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}" attribution="&copy; Google Maps" />
               {depot && (

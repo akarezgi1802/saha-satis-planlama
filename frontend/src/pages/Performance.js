@@ -249,7 +249,7 @@ export default function Performance() {
           <div className="grid-2">
             <div className="chart-panel">
               <h3>Günlük Satış (Bu Hafta)</h3>
-              <ResponsiveContainer width="100%" height={280}>
+              <ResponsiveContainer width="100%" height={window.innerWidth <= 768 ? 200 : 280}>
                 <BarChart data={summary.daily_breakdown}>
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--border-light)" />
                   <XAxis dataKey="day_name" tick={{ fontSize: 12 }} />
@@ -261,7 +261,7 @@ export default function Performance() {
             </div>
             <div className="chart-panel">
               <h3>Günlük Ziyaret Sayısı (Bu Hafta)</h3>
-              <ResponsiveContainer width="100%" height={280}>
+              <ResponsiveContainer width="100%" height={window.innerWidth <= 768 ? 200 : 280}>
                 <LineChart data={summary.daily_breakdown}>
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--border-light)" />
                   <XAxis dataKey="day_name" tick={{ fontSize: 12 }} />

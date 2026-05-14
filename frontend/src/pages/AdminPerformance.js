@@ -279,7 +279,7 @@ export default function AdminPerformance() {
               <div className="grid-2">
                 <div className="chart-panel">
                   <h3>Satış Karşılaştırması (₺)</h3>
-                  <ResponsiveContainer width="100%" height={300}>
+                  <ResponsiveContainer width="100%" height={window.innerWidth <= 768 ? 200 : 300}>
                     <BarChart data={chartData}>
                       <CartesianGrid strokeDasharray="3 3" stroke="var(--border-light)" />
                       <XAxis dataKey="name" tick={{ fontSize: 12 }} />
@@ -291,7 +291,7 @@ export default function AdminPerformance() {
                 </div>
                 <div className="chart-panel">
                   <h3>Ziyaret Karşılaştırması</h3>
-                  <ResponsiveContainer width="100%" height={300}>
+                  <ResponsiveContainer width="100%" height={window.innerWidth <= 768 ? 200 : 300}>
                     <BarChart data={chartData}>
                       <CartesianGrid strokeDasharray="3 3" stroke="var(--border-light)" />
                       <XAxis dataKey="name" tick={{ fontSize: 12 }} />
@@ -303,7 +303,7 @@ export default function AdminPerformance() {
                 </div>
                 <div className="chart-panel">
                   <h3>Müşteri Sayısı Karşılaştırması</h3>
-                  <ResponsiveContainer width="100%" height={300}>
+                  <ResponsiveContainer width="100%" height={window.innerWidth <= 768 ? 200 : 300}>
                     <BarChart data={chartData}>
                       <CartesianGrid strokeDasharray="3 3" stroke="var(--border-light)" />
                       <XAxis dataKey="name" tick={{ fontSize: 12 }} />
@@ -353,7 +353,7 @@ export default function AdminPerformance() {
                   <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                     <select
                       className="form-input"
-                      style={{ width: 200, height: 32, fontSize: 12 }}
+                      style={{ width: "100%", maxWidth: 200, height: 32, fontSize: 12 }}
                       value={selectedRep || ""}
                       onChange={(e) => setSelectedRep(e.target.value ? Number(e.target.value) : null)}
                     >

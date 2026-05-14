@@ -436,7 +436,7 @@ export default function Customers() {
             <div className="panel-header">
               <h3>{customers.length} müşteri haritada gösteriliyor</h3>
             </div>
-            <div style={{ height: 550 }}>
+            <div className="map-container-responsive" style={{ height: window.innerWidth <= 768 ? 350 : 550 }}>
               <MapContainer center={center} zoom={12} style={{ height: "100%", width: "100%" }}>
                 <TileLayer url="https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}" attribution='&copy; Google Maps' />
                 {customers.map((c) => (
@@ -498,18 +498,18 @@ export default function Customers() {
               <div style={{ padding: "12px 16px", borderBottom: "1px solid var(--border)", display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
                 <input
                   className="form-input"
-                  style={{ flex: 1, minWidth: 200 }}
+                  style={{ flex: 1, minWidth: 120 }}
                   placeholder="Müşteri adı veya adres ara..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                 />
-                <select className="form-input" style={{ width: 160 }} value={filterFreq} onChange={(e) => setFilterFreq(e.target.value)}>
+                <select className="form-input" style={{ width: "100%", maxWidth: 160 }} value={filterFreq} onChange={(e) => setFilterFreq(e.target.value)}>
                   <option value="">Tüm Sıklıklar</option>
                   {freqs.map((f) => (
                     <option key={f} value={f}>{f}x / hafta</option>
                   ))}
                 </select>
-                <select className="form-input" style={{ width: 190 }} value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
+                <select className="form-input" style={{ width: "100%", maxWidth: 190 }} value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
                   <option value="">Sıralama: Varsayılan</option>
                   <option value="name_asc">İsim: A → Z</option>
                   <option value="name_desc">İsim: Z → A</option>
@@ -673,7 +673,7 @@ export default function Customers() {
 
       {showCreate && (
         <div className="dialog-overlay" onClick={() => { setShowCreate(false); setSuggestions([]); }}>
-          <div className="dialog" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 620 }}>
+          <div className="dialog" onClick={(e) => e.stopPropagation()} style={{ maxWidth: window.innerWidth <= 768 ? "95vw" : 620 }}>
             <div className="dialog-header">
               <h2>Yeni Müşteri Ekle</h2>
               <p>Müşteri bilgilerini girin</p>
