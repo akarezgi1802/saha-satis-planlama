@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: saha-satis-planlama
+    runtime: python
+    buildCommand: bash build.sh
+    startCommand: cd backend && uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.11"
+      - key: NODE_VERSION
+        value: "18"
