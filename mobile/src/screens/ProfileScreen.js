@@ -1,17 +1,31 @@
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
-  View, Text, ScrollView, StyleSheet, TouchableOpacity, Alert, StatusBar,
+  View, Text, ScrollView, StyleSheet, TouchableOpacity, Alert, StatusBar, ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../AuthContext';
-import { API_BASE_URL } from '../api';
+import api, { API_BASE_URL } from '../api';
 import { colors, radius, spacing, shadow, brandGradient, shellGradient } from '../theme';
 import { Card } from '../components/ui';
 
 export default function ProfileScreen() {
   const { user, logout } = useAuth();
   const insets = useSafeAreaInsets();
+  const [sustainability, setSustainability] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  const load = useCallback(async () => {
+    try {
+      const r = await api.get('/performance/sustainability');
+      setSustainability(r.data);
+    } catch {} finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useFocusEffect(useCallback(() => { load(); }, [load]));
 
   const onLogout = () => {
     Alert.alert('Çıkış Yap', 'Çıkış yapmak istediğine emin misin?', [
@@ -19,6 +33,11 @@ export default function ProfileScreen() {
       { text: 'Çıkış Yap', style: 'destructive', onPress: logout },
     ]);
   };
+
+  const lifetime = sustainability?.lifetime || {};
+  const week = sustainability?.this_week || {};
+  const lifetimeTrees = lifetime.trees_equivalent || 0;
+  const weekTrees = week.trees_equivalent || 0;
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
@@ -39,6 +58,77 @@ export default function ProfileScreen() {
       </LinearGradient>
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 14, paddingBottom: 40 }}>
+
+        {/* Sürdürülebilirlik Katkım */}
+        <View style={styles.susHero}>
+          <LinearGradient
+            colors={['#059669', '#10b981', '#34d399']}
+            start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+            style={styles.susHeroGrad}
+          >
+            <View style={styles.susHeroRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.susHeroLabel}>🌱 SÜRDÜRÜLEBİLİRLİK KATKIM</Text>
+                {loading ? (
+                  <ActivityIndicator color="#fff" style={{ marginTop: 10, alignSelf: 'flex-start' }} />
+                ) : (
+                  <>
+                    <View style={{ flexDirection: 'row', alignItems: 'baseline', marginTop: 6 }}>
+                      <Text style={styles.susHeroValue}>{lifetimeTrees.toFixed(lifetimeTrees < 10 ? 2 : 1)}</Text>
+                      <Text style={styles.susHeroUnit}> ağaç eşdeğeri</Text>
+                    </View>
+                    <Text style={styles.susHeroSubtitle}>
+                      Optimize rotalama kullandığın için doğaya katkın
+                    </Text>
+                  </>
+                )}
+              </View>
+              <Text style={styles.susHeroEmoji}>🌳</Text>
+            </View>
+          </LinearGradient>
+
+          {!loading && sustainability ? (
+            <View style={styles.susBody}>
+              <View style={styles.susStatGrid}>
+                <SusTile
+                  value={lifetime.km_saved?.toFixed(0) || '0'}
+                  unit="km"
+                  label="Toplam km tasarrufu"
+                />
+                <SusTile
+                  value={lifetime.co2_saved_kg?.toFixed(1) || '0'}
+                  unit="kg"
+                  label="Toplam CO₂ engellendi"
+                />
+                <SusTile
+                  value={lifetime.visits || 0}
+                  unit=""
+                  label="Tamamlanan ziyaret"
+                />
+              </View>
+
+              {weekTrees > 0 ? (
+                <View style={styles.susWeekRow}>
+                  <Text style={styles.susWeekIcon}>📅</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.susWeekTitle}>Bu hafta katkın</Text>
+                    <Text style={styles.susWeekValue}>
+                      {weekTrees.toFixed(2)} ağaç · {week.co2_saved_kg?.toFixed(1)} kg CO₂
+                    </Text>
+                  </View>
+                </View>
+              ) : null}
+
+              <View style={styles.susExplainBox}>
+                <Text style={styles.susExplainTitle}>Nasıl hesaplanır?</Text>
+                <Text style={styles.susExplainText}>
+                  Saha Satış Planlama optimize edilmiş rotalar üretir. Naif rotalamaya göre yaklaşık <Text style={{ fontWeight: '800' }}>%30 daha kısa</Text> yol gidiyorsun. Tasarruf edilen mesafe × 0.18 kg CO₂/km hesabıyla, bir ağacın yılda emdiği 22 kg CO₂'ye karşılık ağaç eşdeğeri çıkarılır.
+                </Text>
+              </View>
+            </View>
+          ) : null}
+        </View>
+
         <Text style={styles.section}>HESAP</Text>
         <Card style={{ padding: 0 }}>
           <Row label="Ad Soyad" value={user?.full_name || '—'} />
@@ -61,6 +151,18 @@ export default function ProfileScreen() {
 
         <Text style={styles.footer}>Saha Satış Planlama · Karar Destek Sistemi</Text>
       </ScrollView>
+    </View>
+  );
+}
+
+function SusTile({ value, unit, label }) {
+  return (
+    <View style={styles.susTile}>
+      <View style={{ flexDirection: 'row', alignItems: 'baseline', justifyContent: 'center' }}>
+        <Text style={styles.susTileVal}>{value}</Text>
+        {unit ? <Text style={styles.susTileUnit}> {unit}</Text> : null}
+      </View>
+      <Text style={styles.susTileLabel}>{label}</Text>
     </View>
   );
 }
@@ -93,9 +195,57 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.15)',
   },
   roleText: { color: '#fff', fontSize: 12, fontWeight: '700' },
+
+  // Sustainability hero
+  susHero: {
+    backgroundColor: '#fff',
+    borderRadius: radius.lg,
+    overflow: 'hidden',
+    borderWidth: 1, borderColor: '#a7f3d0',
+    ...shadow.md,
+    marginBottom: 4,
+  },
+  susHeroGrad: { padding: 18 },
+  susHeroRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  susHeroLabel: { color: 'rgba(255,255,255,0.95)', fontSize: 10, fontWeight: '900', letterSpacing: 1 },
+  susHeroValue: { color: '#fff', fontSize: 40, fontWeight: '900', letterSpacing: -1 },
+  susHeroUnit: { color: 'rgba(255,255,255,0.9)', fontSize: 14, fontWeight: '700' },
+  susHeroSubtitle: { color: 'rgba(255,255,255,0.95)', fontSize: 11, marginTop: 4, fontWeight: '600' },
+  susHeroEmoji: { fontSize: 64 },
+  susBody: { padding: 14 },
+  susStatGrid: {
+    flexDirection: 'row', gap: 8, marginBottom: 12,
+  },
+  susTile: {
+    flex: 1, alignItems: 'center',
+    backgroundColor: colors.positiveBg,
+    borderRadius: radius.md, padding: 12,
+  },
+  susTileVal: { fontSize: 18, fontWeight: '900', color: colors.positive },
+  susTileUnit: { fontSize: 11, color: colors.positive, fontWeight: '700' },
+  susTileLabel: { fontSize: 10, color: colors.positive, fontWeight: '700', textAlign: 'center', marginTop: 3 },
+  susWeekRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    backgroundColor: '#f0fdf4',
+    borderRadius: radius.md,
+    padding: 12, marginBottom: 12,
+    borderWidth: 1, borderColor: '#bbf7d0',
+  },
+  susWeekIcon: { fontSize: 20 },
+  susWeekTitle: { fontSize: 11, fontWeight: '800', color: colors.positive, textTransform: 'uppercase', letterSpacing: 0.5 },
+  susWeekValue: { fontSize: 13, color: colors.text, fontWeight: '700', marginTop: 2 },
+  susExplainBox: {
+    backgroundColor: colors.bg,
+    borderRadius: radius.sm,
+    padding: 12,
+    borderWidth: 1, borderColor: colors.border,
+  },
+  susExplainTitle: { fontSize: 11, fontWeight: '800', color: colors.text, marginBottom: 4 },
+  susExplainText: { fontSize: 11, color: colors.textSecondary, lineHeight: 16 },
+
   section: {
     fontSize: 10, fontWeight: '800', color: colors.textTertiary,
-    letterSpacing: 1, marginTop: 16, marginBottom: 8, marginLeft: 4,
+    letterSpacing: 1, marginTop: 18, marginBottom: 8, marginLeft: 4,
   },
   row: {
     flexDirection: 'row',

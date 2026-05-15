@@ -4,9 +4,30 @@ from sqlalchemy import func
 from datetime import date, timedelta
 
 from ..database import get_db
-from ..models import User, Customer, SalesVisit
+from ..models import User, Customer, SalesVisit, Plan, DailyRoute, RouteStop, WeeklyAssignment
 from ..schemas import SalesVisitCreate, SalesVisitOut
 from ..auth import get_current_user, require_admin
+
+# ── Sürdürülebilirlik sabitleri ──
+# Naif rotalama (rastgele/kronolojik) vs. optimize: tipik ~30% daha kısa
+# Yani tasarruf oranı = (naif - opt) / naif = 0.30 → naif = opt / 0.70 → ek tasarruf = opt × (1/0.70 - 1) ≈ opt × 0.43
+NAIVE_OVERHEAD_RATIO = 0.43
+# Orta sınıf binek araç CO2 emisyonu (kg/km)
+CO2_PER_KM = 0.18
+# 1 ağacın 1 yılda yuttuğu ortalama CO2 (kg)
+CO2_PER_TREE_YEAR = 22.0
+
+
+def _user_latest_plan(db, user):
+    """Kullanıcının cluster_index'ine sahip son tamamlanmış planı bul."""
+    if user.cluster_index is None:
+        return None
+    return (
+        db.query(Plan)
+        .filter(Plan.status == "completed")
+        .order_by(Plan.created_at.desc())
+        .first()
+    )
 
 router = APIRouter(prefix="/api/performance", tags=["performance"])
 
@@ -142,6 +163,129 @@ def get_summary(
         "this_week": weekly,
         "this_month": monthly,
         "daily_breakdown": daily_breakdown,
+    }
+
+
+@router.get("/today-target")
+def get_today_target(
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Bugün için planlanmış ziyaret sayısı vs tamamlanan."""
+    today_obj = date.today()
+    # Pazartesi=1 ... Cumartesi=6 (backend convention)
+    weekday = today_obj.weekday() + 1  # Python: Mon=0..Sun=6; backend: Mon=1..Sat=6
+    if weekday == 7:  # Pazar
+        return {
+            "planned": 0, "completed": 0,
+            "percent": 0,
+            "is_weekend": True,
+            "day_of_week": weekday,
+        }
+
+    plan = _user_latest_plan(db, user)
+    if not plan or user.cluster_index is None:
+        return {"planned": 0, "completed": 0, "percent": 0, "is_weekend": False, "day_of_week": weekday}
+
+    planned_stops = (
+        db.query(RouteStop)
+        .join(DailyRoute, RouteStop.daily_route_id == DailyRoute.id)
+        .filter(
+            DailyRoute.plan_id == plan.id,
+            DailyRoute.cluster_index == user.cluster_index,
+            DailyRoute.day_of_week == weekday,
+        )
+        .all()
+    )
+    planned_count = len(planned_stops)
+    planned_ids = {s.customer_id for s in planned_stops}
+
+    completed_visits = (
+        db.query(SalesVisit)
+        .filter(
+            SalesVisit.user_id == user.id,
+            SalesVisit.visit_date == today_obj,
+            SalesVisit.visited == 1,
+            SalesVisit.customer_id.in_(planned_ids) if planned_ids else False,
+        )
+        .count()
+    )
+
+    return {
+        "planned": planned_count,
+        "completed": completed_visits,
+        "percent": round((completed_visits / planned_count) * 100, 1) if planned_count else 0,
+        "is_weekend": False,
+        "day_of_week": weekday,
+    }
+
+
+@router.get("/sustainability")
+def get_sustainability(
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Optimize rotalama sayesinde tasarruf edilen CO2 + ağaç eşdeğeri."""
+    today_obj = date.today()
+    week_start = today_obj - timedelta(days=today_obj.weekday())
+
+    plan = _user_latest_plan(db, user)
+
+    def _aggregate(visits, plan):
+        """Ziyaret sayısına göre kat edilen mesafeyi ve tasarrufu hesapla."""
+        if not visits or not plan or user.cluster_index is None:
+            return {"visits": len(visits), "km_actual": 0, "km_saved": 0,
+                    "co2_saved_kg": 0, "trees_equivalent": 0}
+
+        # User'ın haftalık planındaki toplam mesafe
+        weekly_routes = db.query(DailyRoute).filter(
+            DailyRoute.plan_id == plan.id,
+            DailyRoute.cluster_index == user.cluster_index,
+        ).all()
+        weekly_plan_km = sum(r.total_distance or 0 for r in weekly_routes)
+        total_stops_in_plan = sum(r.customer_count or 0 for r in weekly_routes)
+
+        if total_stops_in_plan == 0:
+            return {"visits": len(visits), "km_actual": 0, "km_saved": 0,
+                    "co2_saved_kg": 0, "trees_equivalent": 0}
+
+        # Optimize rota ile kat edilen yaklaşık mesafe
+        km_per_visit = weekly_plan_km / total_stops_in_plan
+        km_actual = len(visits) * km_per_visit
+        # Naif rotalama olsaydı bu kadar fazla yol giderdi
+        km_saved = km_actual * NAIVE_OVERHEAD_RATIO
+        co2_saved = km_saved * CO2_PER_KM
+        trees = co2_saved / CO2_PER_TREE_YEAR
+        return {
+            "visits": len(visits),
+            "km_actual": round(km_actual, 1),
+            "km_saved": round(km_saved, 1),
+            "co2_saved_kg": round(co2_saved, 2),
+            "trees_equivalent": round(trees, 2),
+        }
+
+    # Bu hafta tamamlanan ziyaretler
+    week_visits = db.query(SalesVisit).filter(
+        SalesVisit.user_id == user.id,
+        SalesVisit.visit_date >= week_start,
+        SalesVisit.visit_date <= today_obj,
+        SalesVisit.visited == 1,
+    ).all()
+
+    # Lifetime
+    all_visits = db.query(SalesVisit).filter(
+        SalesVisit.user_id == user.id,
+        SalesVisit.visited == 1,
+    ).all()
+
+    return {
+        "this_week": _aggregate(week_visits, plan),
+        "lifetime": _aggregate(all_visits, plan),
+        "constants": {
+            "naive_overhead_ratio": NAIVE_OVERHEAD_RATIO,
+            "co2_per_km": CO2_PER_KM,
+            "co2_per_tree_year": CO2_PER_TREE_YEAR,
+        },
     }
 
 
