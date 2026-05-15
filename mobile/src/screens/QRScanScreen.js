@@ -1,10 +1,18 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, StatusBar, Alert } from 'react-native';
-import { CameraView, useCameraPermissions } from 'expo-camera';
+import { View, Text, StyleSheet, TouchableOpacity, StatusBar, Alert, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../AuthContext';
 import { colors, radius, shadow } from '../theme';
 import { GradientButton } from '../components/ui';
+
+const IS_WEB = Platform.OS === 'web';
+// expo-camera web'de tam farklı bir API, sadece native'de import et
+let CameraView, useCameraPermissions;
+if (!IS_WEB) {
+  const cam = require('expo-camera');
+  CameraView = cam.CameraView;
+  useCameraPermissions = cam.useCameraPermissions;
+}
 
 /*
  QR kod formatı (admin paneli tarafından üretilir):
@@ -15,6 +23,20 @@ import { GradientButton } from '../components/ui';
 export default function QRScanScreen({ navigation }) {
   const { login } = useAuth();
   const insets = useSafeAreaInsets();
+
+  if (IS_WEB) {
+    return (
+      <View style={[styles.center, { paddingHorizontal: 24 }]}>
+        <Text style={{ fontSize: 60, marginBottom: 16 }}>📷</Text>
+        <Text style={styles.permissionTitle}>QR tarama tarayıcıda yok</Text>
+        <Text style={[styles.permissionText, { textAlign: 'center', marginBottom: 18 }]}>
+          QR ile giriş yalnızca telefon uygulamasında çalışıyor. Tarayıcıda email + şifre ile giriş yapabilirsin.
+        </Text>
+        <GradientButton title="Geri Dön" onPress={() => navigation.goBack()} style={{ alignSelf: 'stretch' }} />
+      </View>
+    );
+  }
+
   const [permission, requestPermission] = useCameraPermissions();
   const [scanned, setScanned] = useState(false);
   const [busy, setBusy] = useState(false);

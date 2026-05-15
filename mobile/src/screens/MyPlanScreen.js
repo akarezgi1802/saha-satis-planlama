@@ -1,16 +1,26 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import {
   View, Text, ScrollView, StyleSheet, TouchableOpacity, RefreshControl,
-  ActivityIndicator, StatusBar, Dimensions,
+  ActivityIndicator, StatusBar, Dimensions, Platform,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import MapView, { Marker, Polyline, PROVIDER_DEFAULT } from 'react-native-maps';
 import api from '../api';
 import { useAuth } from '../AuthContext';
 import { colors, radius, spacing, shadow, brandGradient } from '../theme';
 import { Card, Tag, EmptyState, SectionTitle } from '../components/ui';
+
+const IS_WEB = Platform.OS === 'web';
+// react-native-maps web'de yok — sadece native'de import et
+let MapView, Marker, Polyline, PROVIDER_DEFAULT;
+if (!IS_WEB) {
+  const maps = require('react-native-maps');
+  MapView = maps.default;
+  Marker = maps.Marker;
+  Polyline = maps.Polyline;
+  PROVIDER_DEFAULT = maps.PROVIDER_DEFAULT;
+}
 
 const DAYS = [
   { key: 1, label: 'Pzt' },
@@ -36,7 +46,8 @@ export default function MyPlanScreen({ navigation }) {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
   const [selectedDay, setSelectedDay] = useState(todayKey());
-  const [view, setView] = useState('map'); // 'map' | 'list'
+  // Web'de harita yok, varsayılan liste
+  const [view, setView] = useState(IS_WEB ? 'list' : 'map'); // 'map' | 'list'
   const [visits, setVisits] = useState([]);
 
   const load = useCallback(async () => {
@@ -138,21 +149,23 @@ export default function MyPlanScreen({ navigation }) {
             </Text>
           </View>
 
-          {/* View toggle */}
-          <View style={styles.toggle}>
-            <TouchableOpacity
-              onPress={() => setView('map')}
-              style={[styles.toggleBtn, view === 'map' && styles.toggleBtnActive]}
-            >
-              <Text style={[styles.toggleText, view === 'map' && styles.toggleTextActive]}>🗺️</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => setView('list')}
-              style={[styles.toggleBtn, view === 'list' && styles.toggleBtnActive]}
-            >
-              <Text style={[styles.toggleText, view === 'list' && styles.toggleTextActive]}>☰</Text>
-            </TouchableOpacity>
-          </View>
+          {/* View toggle — sadece native'de göster */}
+          {!IS_WEB ? (
+            <View style={styles.toggle}>
+              <TouchableOpacity
+                onPress={() => setView('map')}
+                style={[styles.toggleBtn, view === 'map' && styles.toggleBtnActive]}
+              >
+                <Text style={[styles.toggleText, view === 'map' && styles.toggleTextActive]}>🗺️</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => setView('list')}
+                style={[styles.toggleBtn, view === 'list' && styles.toggleBtnActive]}
+              >
+                <Text style={[styles.toggleText, view === 'list' && styles.toggleTextActive]}>☰</Text>
+              </TouchableOpacity>
+            </View>
+          ) : null}
         </View>
       </LinearGradient>
 

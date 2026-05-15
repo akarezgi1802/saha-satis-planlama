@@ -3,6 +3,8 @@ import {
   View, Text, TextInput, StyleSheet, KeyboardAvoidingView, Platform,
   TouchableOpacity, ScrollView, StatusBar,
 } from 'react-native';
+
+const IS_WEB = Platform.OS === 'web';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../AuthContext';
@@ -92,20 +94,24 @@ export default function LoginScreen({ navigation }) {
 
             <GradientButton title="Giriş Yap" onPress={onSubmit} loading={loading} style={{ marginTop: 8 }} />
 
-            <View style={styles.divider}>
-              <View style={styles.dividerLine} />
-              <Text style={styles.dividerText}>veya</Text>
-              <View style={styles.dividerLine} />
-            </View>
+            {!IS_WEB ? (
+              <>
+                <View style={styles.divider}>
+                  <View style={styles.dividerLine} />
+                  <Text style={styles.dividerText}>veya</Text>
+                  <View style={styles.dividerLine} />
+                </View>
 
-            <TouchableOpacity
-              style={styles.qrBtn}
-              activeOpacity={0.85}
-              onPress={() => navigation.navigate('QRScan')}
-            >
-              <Text style={styles.qrEmoji}>⬛</Text>
-              <Text style={styles.qrBtnText}>QR Kod ile Giriş</Text>
-            </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.qrBtn}
+                  activeOpacity={0.85}
+                  onPress={() => navigation.navigate('QRScan')}
+                >
+                  <Text style={styles.qrEmoji}>⬛</Text>
+                  <Text style={styles.qrBtnText}>QR Kod ile Giriş</Text>
+                </TouchableOpacity>
+              </>
+            ) : null}
           </View>
 
           <Text style={styles.footer}>

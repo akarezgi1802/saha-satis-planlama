@@ -14,11 +14,13 @@
     },
     "ios": {
       "supportsTablet": true,
+      "bundleIdentifier": "com.sahasatis.mobile",
       "infoPlist": {
         "NSCameraUsageDescription": "QR kod ile giriş yapabilmek için kameraya erişim gerekiyor."
       }
     },
     "android": {
+      "package": "com.sahasatis.mobile",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#1e1b4b"
@@ -27,7 +29,9 @@
       "permissions": ["android.permission.CAMERA"]
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro",
+      "output": "single"
     },
     "plugins": [
       [
