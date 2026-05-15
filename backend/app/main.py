@@ -6,11 +6,31 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 
+from sqlalchemy import text
+
 from .database import engine, Base, SessionLocal
 from .models import Plan
-from .routers import auth, customers, sales_reps, plans, settings, performance, announcements, ai
+from .routers import auth, customers, sales_reps, plans, settings, performance, announcements, ai, campaigns
 
 Base.metadata.create_all(bind=engine)
+
+
+# ── Lightweight migration: mevcut tablolara eksik kolonları ekle ──
+# (Alembic kullanılmıyor; production DB'de schema değişikliği için)
+def _run_migrations():
+    migrations = [
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS monthly_target FLOAT DEFAULT 0",
+    ]
+    with engine.connect() as conn:
+        for sql in migrations:
+            try:
+                conn.execute(text(sql))
+                conn.commit()
+            except Exception as e:
+                print(f"[migration] '{sql[:60]}...' atlandı: {e}")
+
+
+_run_migrations()
 
 app = FastAPI(
     title="Saha Satis Planlama API",
@@ -51,6 +71,7 @@ app.include_router(settings.router)
 app.include_router(performance.router)
 app.include_router(announcements.router)
 app.include_router(ai.router)
+app.include_router(campaigns.router)
 
 
 # ── Frontend static dosyaları (deploy modunda) ──

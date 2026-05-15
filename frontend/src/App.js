@@ -12,6 +12,7 @@ import Performance from "./pages/Performance";
 import Profile from "./pages/Profile";
 import AdminPerformance from "./pages/AdminPerformance";
 import Announcements from "./pages/Announcements";
+import Campaigns from "./pages/Campaigns";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
 import "./App.css";
@@ -81,6 +82,12 @@ function ProtectedLayout({ user, onLogout, children }) {
                   Duyurular
                 </NavLink>
               </li>
+              <li>
+                <NavLink to="/campaigns" onClick={closeSidebar}>
+                  <span className="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 11l18-5v12L3 13"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/></svg></span>
+                  Kampanyalar
+                </NavLink>
+              </li>
             </>
           )}
           {!isAdmin && (
@@ -101,6 +108,12 @@ function ProtectedLayout({ user, onLogout, children }) {
                 <NavLink to="/announcements" onClick={closeSidebar}>
                   <span className="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 17H2a3 3 0 0 0 3-3V9a7 7 0 0 1 14 0v5a3 3 0 0 0 3 3zm-8.27 4a2 2 0 0 1-3.46 0"/></svg></span>
                   Duyurular
+                </NavLink>
+              </li>
+              <li>
+                <NavLink to="/campaigns" onClick={closeSidebar}>
+                  <span className="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 11l18-5v12L3 13"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/></svg></span>
+                  Kampanyalar
                 </NavLink>
               </li>
             </>
@@ -174,6 +187,7 @@ function App() {
                       <Route path="/staff" element={<Staff />} />
                       <Route path="/performance" element={<AdminPerformance />} />
                       <Route path="/announcements" element={<Announcements />} />
+                      <Route path="/campaigns" element={<Campaigns />} />
                     </>
                   )}
                   {!isAdmin && (
@@ -181,6 +195,7 @@ function App() {
                       <Route path="/" element={<Performance />} />
                       <Route path="/my-plan" element={<MyPlan />} />
                       <Route path="/announcements" element={<Announcements />} />
+                      <Route path="/campaigns" element={<Campaigns />} />
                     </>
                   )}
                   <Route path="*" element={<Navigate to="/" />} />

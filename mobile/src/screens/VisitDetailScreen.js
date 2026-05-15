@@ -25,6 +25,7 @@ export default function VisitDetailScreen({ route, navigation }) {
   const [aiSummary, setAiSummary] = useState('');
   const [aiLoading, setAiLoading] = useState(false);
   const [aiEnabled, setAiEnabled] = useState(null);
+  const [campaigns, setCampaigns] = useState([]);
 
   const prepareMeeting = async () => {
     setAiLoading(true);
@@ -42,7 +43,7 @@ export default function VisitDetailScreen({ route, navigation }) {
 
   const load = useCallback(async () => {
     try {
-      const [c, v] = await Promise.all([
+      const [c, v, camp] = await Promise.all([
         api.get(`/customers/${customerId}`),
         api.get('/performance/visits', {
           params: {
@@ -50,8 +51,10 @@ export default function VisitDetailScreen({ route, navigation }) {
             end_date: new Date().toISOString().slice(0, 10),
           },
         }),
+        api.get('/campaigns/', { params: { active_only: true } }).catch(() => ({ data: [] })),
       ]);
       setCustomer(c.data);
+      setCampaigns(camp.data || []);
       const today = new Date().toISOString().slice(0, 10);
       const ex = (v.data || []).find(x => x.customer_id === customerId && x.visit_date === today);
       if (ex) {
@@ -65,6 +68,16 @@ export default function VisitDetailScreen({ route, navigation }) {
       setLoading(false);
     }
   }, [customerId]);
+
+  const BRAND_STYLES = {
+    "Lay's":   { bg: '#fcd34d', fg: '#92400e', emoji: '🥔' },
+    "Doritos": { bg: '#dc2626', fg: '#fff',    emoji: '🌶️' },
+    "Cheetos": { bg: '#f97316', fg: '#fff',    emoji: '🧀' },
+    "Ruffles": { bg: '#1e40af', fg: '#fff',    emoji: '〰️' },
+    "Cipsi":   { bg: '#0891b2', fg: '#fff',    emoji: '🥨' },
+    "Tang":    { bg: '#fbbf24', fg: '#7c2d12', emoji: '🍊' },
+  };
+  const brandStyle = (b) => BRAND_STYLES[b] || { bg: colors.brand, fg: '#fff', emoji: '📦' };
 
   useEffect(() => { load(); }, [load]);
 
@@ -155,6 +168,35 @@ export default function VisitDetailScreen({ route, navigation }) {
                   <InfoRow icon="📝" label="Müşteri Notu" value={customer.notes} />
                 ) : null}
               </Card>
+
+              {campaigns.length > 0 ? (
+                <>
+                  <SectionTitle>🎯 Sunulacak Kampanyalar ({campaigns.length})</SectionTitle>
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={{ gap: 10, paddingBottom: 4 }}
+                  >
+                    {campaigns.map(c => {
+                      const bs = brandStyle(c.brand);
+                      return (
+                        <View key={c.id} style={[styles.miniCamp, { borderColor: bs.bg }]}>
+                          <View style={[styles.miniCampBanner, { backgroundColor: bs.bg }]}>
+                            <Text style={[styles.miniCampBrand, { color: bs.fg }]}>{bs.emoji} {c.brand}</Text>
+                            {c.discount_text ? (
+                              <Text style={[styles.miniCampDiscount, { color: bs.fg }]}>{c.discount_text}</Text>
+                            ) : null}
+                          </View>
+                          <View style={{ padding: 10 }}>
+                            <Text style={styles.miniCampTitle} numberOfLines={2}>{c.title}</Text>
+                            <Text style={styles.miniCampDesc} numberOfLines={2}>{c.description}</Text>
+                          </View>
+                        </View>
+                      );
+                    })}
+                  </ScrollView>
+                </>
+              ) : null}
 
               <SectionTitle right={
                 <TouchableOpacity onPress={prepareMeeting} disabled={aiLoading} style={styles.aiBtnSmall}>
@@ -373,4 +415,17 @@ const styles = StyleSheet.create({
     marginTop: 6, fontSize: 10, color: colors.textTertiary,
     fontWeight: '600', fontStyle: 'italic', textAlign: 'center',
   },
+  miniCamp: {
+    width: 210,
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    borderWidth: 2,
+    overflow: 'hidden',
+    ...shadow.sm,
+  },
+  miniCampBanner: { padding: 10 },
+  miniCampBrand: { fontSize: 10, fontWeight: '900', letterSpacing: 1, textTransform: 'uppercase' },
+  miniCampDiscount: { fontSize: 13, fontWeight: '800', marginTop: 4 },
+  miniCampTitle: { fontSize: 12, fontWeight: '800', color: colors.text },
+  miniCampDesc: { fontSize: 11, color: colors.textSecondary, marginTop: 4, lineHeight: 15 },
 });

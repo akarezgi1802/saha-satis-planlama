@@ -14,7 +14,7 @@ import QRScanScreen from '../screens/QRScanScreen';
 import DashboardScreen from '../screens/DashboardScreen';
 import MyPlanScreen from '../screens/MyPlanScreen';
 import VisitDetailScreen from '../screens/VisitDetailScreen';
-import AnnouncementsScreen from '../screens/AnnouncementsScreen';
+import NotificationsScreen from '../screens/NotificationsScreen';
 import CustomersScreen from '../screens/CustomersScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import AIAssistantScreen from '../screens/AIAssistantScreen';
@@ -25,10 +25,11 @@ const AuthStack = createNativeStackNavigator();
 const AppStack = createNativeStackNavigator();
 const Tabs = createBottomTabNavigator();
 
-const ANNOUNCEMENT_POLL_MS = 20000;
-const LAST_SEEN_KEY = 'announcements_last_seen_id';
+const POLL_MS = 20000;
+const LAST_SEEN_ANN_KEY = 'announcements_last_seen_id';
+const LAST_SEEN_CAMP_KEY = 'campaigns_last_seen_id';
 
-function useAnnouncementBadge() {
+function useNotificationBadge() {
   const [count, setCount] = useState(0);
   const appStateRef = useRef(AppState.currentState);
 
@@ -38,18 +39,22 @@ function useAnnouncementBadge() {
 
     const check = async () => {
       try {
-        const res = await api.get('/announcements/');
-        const lastSeenRaw = await AsyncStorage.getItem(LAST_SEEN_KEY);
-        const lastSeen = parseInt(lastSeenRaw || '0', 10);
-        const unread = (res.data || []).filter(a => a.id > lastSeen).length;
-        if (mounted) setCount(unread);
+        const [annR, campR] = await Promise.all([
+          api.get('/announcements/'),
+          api.get('/campaigns/', { params: { active_only: true } }).catch(() => ({ data: [] })),
+        ]);
+        const lastAnn = parseInt((await AsyncStorage.getItem(LAST_SEEN_ANN_KEY)) || '0', 10);
+        const lastCamp = parseInt((await AsyncStorage.getItem(LAST_SEEN_CAMP_KEY)) || '0', 10);
+        const annUnread = (annR.data || []).filter(a => a.id > lastAnn).length;
+        const campUnread = (campR.data || []).filter(a => a.id > lastCamp).length;
+        if (mounted) setCount(annUnread + campUnread);
       } catch {}
     };
 
     check();
     interval = setInterval(() => {
       if (appStateRef.current === 'active') check();
-    }, ANNOUNCEMENT_POLL_MS);
+    }, POLL_MS);
 
     const sub = AppState.addEventListener('change', (s) => {
       appStateRef.current = s;
@@ -76,7 +81,7 @@ function AuthNavigator() {
 }
 
 function TabsNavigator() {
-  const badge = useAnnouncementBadge();
+  const badge = useNotificationBadge();
   return (
     <Tabs.Navigator
       screenOptions={({ route }) => ({
@@ -95,7 +100,7 @@ function TabsNavigator() {
             Home: 'home',
             Plan: 'route',
             AI: 'bot',
-            Announcements: 'bell',
+            Notifications: 'bell',
             Profile: 'user',
           };
           return <TabIcon name={map[route.name]} color={color} size={22} />;
@@ -115,10 +120,10 @@ function TabsNavigator() {
         }}
       />
       <Tabs.Screen
-        name="Announcements"
-        component={AnnouncementsScreen}
+        name="Notifications"
+        component={NotificationsScreen}
         options={{
-          title: 'Duyurular',
+          title: 'Bildirimler',
           tabBarBadge: badge > 0 ? (badge > 9 ? '9+' : String(badge)) : undefined,
           tabBarBadgeStyle: { backgroundColor: colors.negative, color: '#fff', fontWeight: '700' },
         }}

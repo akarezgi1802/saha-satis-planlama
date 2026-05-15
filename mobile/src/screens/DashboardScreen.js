@@ -14,7 +14,21 @@ import { Card, KpiTile, SectionTitle, EmptyState } from '../components/ui';
 
 const DAY_NAMES_TR = ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'];
 
-function ProgressRing({ percent = 0, size = 84, stroke = 9, color = colors.positive }) {
+// Frito-Lay marka renkleri
+const BRAND_STYLES = {
+  "Lay's": { bg: '#fcd34d', fg: '#92400e', emoji: '🥔' },
+  "Doritos": { bg: '#dc2626', fg: '#fff', emoji: '🌶️' },
+  "Cheetos": { bg: '#f97316', fg: '#fff', emoji: '🧀' },
+  "Ruffles": { bg: '#1e40af', fg: '#fff', emoji: '〰️' },
+  "Cipsi": { bg: '#0891b2', fg: '#fff', emoji: '🥨' },
+  "Tang": { bg: '#fbbf24', fg: '#7c2d12', emoji: '🍊' },
+};
+
+function brandStyle(b) {
+  return BRAND_STYLES[b] || { bg: colors.brand, fg: '#fff', emoji: '📦' };
+}
+
+function ProgressRing({ percent = 0, size = 92, stroke = 10, color = colors.positive }) {
   const r = (size - stroke) / 2;
   const c = 2 * Math.PI * r;
   const offset = c - (Math.min(percent, 100) / 100) * c;
@@ -31,23 +45,38 @@ function ProgressRing({ percent = 0, size = 84, stroke = 9, color = colors.posit
       </Svg>
       <View style={StyleSheet.absoluteFill}>
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-          <Text style={{ fontSize: 16, fontWeight: '800', color: colors.text }}>{`${Math.round(percent)}%`}</Text>
+          <Text style={{ fontSize: 18, fontWeight: '800', color: colors.text }}>{`${Math.round(percent)}%`}</Text>
         </View>
       </View>
     </View>
   );
 }
 
-function formatTL(n) {
-  if (n == null) return '0 ₺';
-  return `${Number(n).toLocaleString('tr-TR', { maximumFractionDigits: 0 })} ₺`;
+function formatTL(n, withSuffix = true) {
+  if (n == null) return withSuffix ? '0 ₺' : '0';
+  const s = Number(n).toLocaleString('tr-TR', { maximumFractionDigits: 0 });
+  return withSuffix ? `${s} ₺` : s;
 }
 
+function daysLeft(until) {
+  if (!until) return null;
+  const ms = new Date(until) - new Date();
+  return Math.ceil(ms / 86400000);
+}
+
+function daysInCurrentMonth() {
+  const now = new Date();
+  return new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+}
+
+function dayOfMonth() { return new Date().getDate(); }
+
 export default function DashboardScreen({ navigation }) {
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
   const insets = useSafeAreaInsets();
   const [summary, setSummary] = useState(null);
   const [announcements, setAnnouncements] = useState([]);
+  const [campaigns, setCampaigns] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
@@ -55,19 +84,22 @@ export default function DashboardScreen({ navigation }) {
   const load = useCallback(async () => {
     setError('');
     try {
-      const [s, a] = await Promise.all([
+      const [s, a, c] = await Promise.all([
         api.get('/performance/summary'),
         api.get('/announcements/'),
+        api.get('/campaigns/', { params: { active_only: true } }).catch(() => ({ data: [] })),
       ]);
       setSummary(s.data);
       setAnnouncements(a.data || []);
+      setCampaigns(c.data || []);
+      refreshUser();
     } catch (e) {
       setError(e.response?.data?.detail || 'Veriler yüklenemedi');
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [refreshUser]);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
@@ -81,10 +113,22 @@ export default function DashboardScreen({ navigation }) {
   const todayCustomers = summary?.today?.customer_count || 0;
   const weekSales = summary?.this_week?.total_sales || 0;
   const monthSales = summary?.this_month?.total_sales || 0;
+  const weekVisits = summary?.this_week?.visit_count || 0;
 
-  // Simple "goal" — 12M monthly target like the mockup
-  const monthlyTarget = 12_000_000;
-  const monthlyPercent = monthlyTarget ? Math.min(100, (monthSales / monthlyTarget) * 100) : 0;
+  // Gerçek hedef — admin atadıysa
+  const monthlyTarget = user?.monthly_target || 0;
+  const hasTarget = monthlyTarget > 0;
+  const monthlyPercent = hasTarget ? Math.min(100, (monthSales / monthlyTarget) * 100) : 0;
+  const remainingTL = Math.max(0, monthlyTarget - monthSales);
+  const daysRemaining = Math.max(1, daysInCurrentMonth() - dayOfMonth() + 1);
+  const dailyTargetNeeded = hasTarget ? remainingTL / daysRemaining : 0;
+  const dailyTargetAvg = hasTarget ? monthlyTarget / daysInCurrentMonth() : 0;
+
+  // Streak: bu hafta günde >= dailyTargetAvg yapılan gün sayısı
+  const streak = summary?.daily_breakdown?.filter(d => hasTarget && d.sales >= dailyTargetAvg).length || 0;
+
+  // Önceki haftaya kıyas yok backend'de — placeholder
+  const onTrackToday = hasTarget && todaySales >= dailyTargetAvg;
 
   const greeting = () => {
     const h = new Date().getHours();
@@ -103,14 +147,16 @@ export default function DashboardScreen({ navigation }) {
             <Text style={styles.heroGreet}>{greeting()}, {user?.full_name?.split(' ')[0] || ''}</Text>
             <Text style={styles.heroDate}>{todayLabel}</Text>
           </View>
-          <View style={styles.bellWrap}>
+          <TouchableOpacity onPress={() => navigation.navigate('Notifications')} style={styles.bellWrap} activeOpacity={0.85}>
             <Text style={styles.bell}>🔔</Text>
-            {announcements?.length ? (
+            {(announcements?.length + campaigns?.length) ? (
               <View style={styles.bellBadge}>
-                <Text style={styles.bellBadgeText}>{announcements.length > 9 ? '9+' : announcements.length}</Text>
+                <Text style={styles.bellBadgeText}>
+                  {(announcements.length + campaigns.length) > 9 ? '9+' : (announcements.length + campaigns.length)}
+                </Text>
               </View>
             ) : null}
-          </View>
+          </TouchableOpacity>
         </View>
       </LinearGradient>
 
@@ -131,61 +177,140 @@ export default function DashboardScreen({ navigation }) {
               </View>
             ) : null}
 
-            {/* Hedefler kartı */}
+            {/* Hedef kartı */}
             <Card style={{ marginTop: -36 }}>
               <View style={styles.goalRow}>
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.goalLabel}>Hedefler</Text>
-                  <Text style={styles.goalTitle}>Aylık Satış</Text>
-                  <View style={{ flexDirection: 'row', alignItems: 'baseline', marginTop: 6 }}>
-                    <Text style={styles.goalValue}>{formatTL(monthSales)}</Text>
-                    <Text style={styles.goalSub}> / {formatTL(monthlyTarget)}</Text>
-                  </View>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8 }}>
-                    <Text style={styles.goalDelta}>↗ {monthlyPercent.toFixed(1)}%</Text>
-                    <Text style={styles.goalAuthor}>  {user?.full_name}</Text>
+                  <Text style={styles.goalLabel}>AYLIK HEDEF</Text>
+                  {hasTarget ? (
+                    <>
+                      <View style={{ flexDirection: 'row', alignItems: 'baseline', marginTop: 4 }}>
+                        <Text style={styles.goalValue}>{formatTL(monthSales, false)}</Text>
+                        <Text style={styles.goalSub}> / {formatTL(monthlyTarget)}</Text>
+                      </View>
+                      <View style={styles.goalChips}>
+                        <View style={[styles.goalChip, { backgroundColor: monthlyPercent >= 80 ? colors.positiveBg : colors.criticalBg }]}>
+                          <Text style={[styles.goalChipText, { color: monthlyPercent >= 80 ? colors.positive : colors.critical }]}>
+                            {monthlyPercent >= 100 ? '🏆 Hedef aşıldı' : monthlyPercent >= 80 ? '✓ Hedefe yakın' : '↗ Devam'}
+                          </Text>
+                        </View>
+                        <Text style={styles.goalDays}>{daysRemaining} gün kaldı</Text>
+                      </View>
+                    </>
+                  ) : (
+                    <>
+                      <Text style={[styles.goalValue, { color: colors.textTertiary, marginTop: 6 }]}>—</Text>
+                      <Text style={styles.goalNoTarget}>Yöneticin hedef atamamış</Text>
+                    </>
+                  )}
+                </View>
+                <ProgressRing
+                  percent={monthlyPercent}
+                  color={!hasTarget ? colors.border : monthlyPercent >= 80 ? colors.positive : colors.accent}
+                />
+              </View>
+
+              {hasTarget && monthlyPercent < 100 ? (
+                <View style={styles.dailyHint}>
+                  <Text style={styles.dailyHintLabel}>Günlük hedefin</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 4 }}>
+                    <Text style={styles.dailyHintValue}>{formatTL(dailyTargetNeeded)}</Text>
+                    <Text style={styles.dailyHintMeta}>· günde ortalama gerek</Text>
                   </View>
                 </View>
-                <ProgressRing percent={monthlyPercent} color={monthlyPercent >= 80 ? colors.positive : colors.accent} />
-              </View>
-              <View style={styles.goalFooter}>
-                <Text style={[styles.goalFooterText, { color: monthlyPercent >= 80 ? colors.positive : colors.accent }]}>
-                  {monthlyPercent >= 80 ? 'Minimum hedefe ulaşıldı' : 'Hedefin altında — devam et'}
-                </Text>
-              </View>
+              ) : null}
             </Card>
 
-            <SectionTitle>Özet</SectionTitle>
+            <SectionTitle>Bugün</SectionTitle>
             <View style={styles.kpiRow}>
-              <KpiTile label="Bugün Satış" value={formatTL(todaySales).replace(' ₺', '')} unit="₺" accent={colors.positive} />
-              <KpiTile label="Bugün Ziyaret" value={todayVisits} unit="kişi" accent={colors.brand} />
-              <KpiTile label="Müşteri" value={todayCustomers} unit="kişi" accent={colors.accent} />
+              <KpiTile label="Satış" value={formatTL(todaySales, false)} unit="₺" accent={onTrackToday ? colors.positive : colors.accent} />
+              <KpiTile label="Ziyaret" value={todayVisits} unit="kişi" accent={colors.brand} />
+              <KpiTile label="Müşteri" value={todayCustomers} unit="" accent={colors.brandPurple} />
             </View>
-            <View style={[styles.kpiRow, { marginTop: 10 }]}>
-              <KpiTile label="Hafta Satış" value={formatTL(weekSales).replace(' ₺', '')} unit="₺" accent={colors.brandPurple} />
-              <KpiTile label="Ay Satış" value={formatTL(monthSales).replace(' ₺', '')} unit="₺" accent={colors.informative} />
+
+            <SectionTitle>Bu Hafta · Bu Ay</SectionTitle>
+            <View style={styles.kpiRow}>
+              <KpiTile label="Hafta Satış" value={formatTL(weekSales, false)} unit="₺" accent={colors.brandPurple} />
+              <KpiTile label="Hafta Ziy." value={weekVisits} unit="" accent={colors.informative} />
+              <KpiTile label="Streak" value={streak} unit="/7" accent={streak >= 5 ? colors.positive : colors.textTertiary} />
             </View>
+
+            {/* Kampanyalar carousel */}
+            {campaigns.length > 0 ? (
+              <>
+                <SectionTitle right={
+                  <Text style={styles.linkText} onPress={() => navigation.navigate('Notifications', { tab: 'campaigns' })}>
+                    Tümü →
+                  </Text>
+                }>
+                  🎯 Aktif Kampanyalar ({campaigns.length})
+                </SectionTitle>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={{ gap: 10, paddingRight: 14 }}
+                >
+                  {campaigns.slice(0, 6).map(c => {
+                    const bs = brandStyle(c.brand);
+                    const left = daysLeft(c.valid_until);
+                    return (
+                      <TouchableOpacity
+                        key={c.id}
+                        activeOpacity={0.85}
+                        onPress={() => navigation.navigate('Notifications', { tab: 'campaigns' })}
+                        style={styles.campCard}
+                      >
+                        <View style={[styles.campBanner, { backgroundColor: bs.bg }]}>
+                          <Text style={[styles.campBrand, { color: bs.fg }]}>{bs.emoji} {c.brand}</Text>
+                          {c.discount_text ? (
+                            <View style={styles.campDiscount}>
+                              <Text style={[styles.campDiscountText, { color: bs.fg }]}>{c.discount_text}</Text>
+                            </View>
+                          ) : null}
+                        </View>
+                        <View style={{ padding: 12 }}>
+                          <Text style={styles.campTitle} numberOfLines={2}>{c.title}</Text>
+                          {left != null ? (
+                            <Text style={[styles.campDays, { color: left <= 3 ? colors.critical : colors.textSecondary }]}>
+                              {left < 0 ? 'süresi bitti' : `${left} gün kaldı`}
+                            </Text>
+                          ) : null}
+                        </View>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
+              </>
+            ) : null}
 
             <SectionTitle right={
-              <Text style={styles.linkText} onPress={() => navigation.navigate('Plan')}>Tümünü gör →</Text>
+              <Text style={styles.linkText} onPress={() => navigation.navigate('Plan')}>Plan →</Text>
             }>
-              Bu Hafta
+              Bu Hafta Grafiği
             </SectionTitle>
-
             <Card>
               {summary?.daily_breakdown?.map((d, i) => {
                 const max = Math.max(1, ...(summary.daily_breakdown.map(x => x.sales)));
-                const h = Math.max(6, Math.round((d.sales / max) * 60));
+                const onTarget = hasTarget && d.sales >= dailyTargetAvg;
                 return (
                   <View key={i} style={styles.dayRow}>
                     <Text style={styles.dayName}>{d.day_name}</Text>
                     <View style={styles.barTrack}>
-                      <View style={[styles.bar, { width: `${(d.sales / max) * 100}%` }]} />
+                      <View style={[styles.bar, { width: `${(d.sales / max) * 100}%`, backgroundColor: onTarget ? colors.positive : colors.brand }]} />
+                      {hasTarget && dailyTargetAvg > 0 ? (
+                        <View style={[styles.barTargetLine, { left: `${Math.min(100, (dailyTargetAvg / max) * 100)}%` }]} />
+                      ) : null}
                     </View>
                     <Text style={styles.dayVal}>{formatTL(d.sales)}</Text>
                   </View>
                 );
               })}
+              {hasTarget && dailyTargetAvg > 0 ? (
+                <View style={styles.legendRow}>
+                  <View style={styles.legendDot} />
+                  <Text style={styles.legendText}>Kesik çizgi = günlük hedef ({formatTL(dailyTargetAvg)})</Text>
+                </View>
+              ) : null}
               {(!summary?.daily_breakdown || summary.daily_breakdown.every(d => d.sales === 0)) ? (
                 <EmptyState icon="📊" title="Henüz satış yok" subtitle="İlk ziyaretini tamamladığında burada görünür" />
               ) : null}
@@ -195,7 +320,7 @@ export default function DashboardScreen({ navigation }) {
               <TouchableLink
                 icon="👥"
                 title="Müşteriler"
-                subtitle="Bölgemdeki müşteriler"
+                subtitle="Bölgemdekiler"
                 onPress={() => navigation.navigate('Customers')}
               />
               <TouchableLink
@@ -208,7 +333,7 @@ export default function DashboardScreen({ navigation }) {
             </View>
 
             <SectionTitle right={
-              <Text style={styles.linkText} onPress={() => navigation.navigate('Announcements')}>Tümü →</Text>
+              <Text style={styles.linkText} onPress={() => navigation.navigate('Notifications')}>Tümü →</Text>
             }>
               Son Duyurular
             </SectionTitle>
@@ -255,6 +380,8 @@ function categoryColor(cat) {
   switch ((cat || '').toLowerCase()) {
     case 'urgent': return colors.negative;
     case 'warning': return colors.critical;
+    case 'campaign': return colors.accent;
+    case 'incentive': return colors.positive;
     case 'info': return colors.informative;
     default: return colors.brand;
   }
@@ -291,30 +418,63 @@ const styles = StyleSheet.create({
   },
   bellBadgeText: { color: '#fff', fontSize: 10, fontWeight: '800' },
   goalRow: { flexDirection: 'row', alignItems: 'center' },
-  goalLabel: { fontSize: 11, fontWeight: '700', color: colors.textTertiary, letterSpacing: 0.5, textTransform: 'uppercase' },
-  goalTitle: { fontSize: 14, fontWeight: '700', color: colors.text, marginTop: 4 },
-  goalValue: { fontSize: 18, fontWeight: '800', color: colors.text },
-  goalSub: { fontSize: 12, color: colors.textSecondary, fontWeight: '600' },
-  goalDelta: { fontSize: 12, fontWeight: '700', color: colors.positive },
-  goalAuthor: { fontSize: 12, color: colors.textSecondary },
-  goalFooter: { marginTop: 14, paddingTop: 12, borderTopWidth: 1, borderTopColor: colors.borderLight },
-  goalFooterText: { fontSize: 12, fontWeight: '700' },
+  goalLabel: { fontSize: 10, fontWeight: '800', color: colors.textTertiary, letterSpacing: 1 },
+  goalValue: { fontSize: 22, fontWeight: '800', color: colors.text, letterSpacing: -0.5 },
+  goalSub: { fontSize: 13, color: colors.textSecondary, fontWeight: '600' },
+  goalChips: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 10 },
+  goalChip: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
+  goalChipText: { fontSize: 11, fontWeight: '800' },
+  goalDays: { fontSize: 11, color: colors.textSecondary, fontWeight: '600' },
+  goalNoTarget: { fontSize: 11, color: colors.textTertiary, marginTop: 4, fontStyle: 'italic' },
+  dailyHint: {
+    marginTop: 14, paddingTop: 12, borderTopWidth: 1, borderTopColor: colors.borderLight,
+  },
+  dailyHintLabel: { fontSize: 10, fontWeight: '800', color: colors.textTertiary, letterSpacing: 0.5 },
+  dailyHintValue: { fontSize: 16, fontWeight: '800', color: colors.brand },
+  dailyHintMeta: { fontSize: 11, color: colors.textSecondary, fontWeight: '500' },
+
   kpiRow: { flexDirection: 'row', gap: 10 },
   linkText: { color: colors.brand, fontWeight: '700', fontSize: 12 },
   dayRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 6 },
   dayName: { width: 40, fontSize: 12, fontWeight: '700', color: colors.textSecondary },
-  barTrack: { flex: 1, height: 8, backgroundColor: colors.borderLight, borderRadius: 4, marginHorizontal: 10 },
-  bar: { height: 8, borderRadius: 4, backgroundColor: colors.brand },
+  barTrack: { flex: 1, height: 8, backgroundColor: colors.borderLight, borderRadius: 4, marginHorizontal: 10, position: 'relative', overflow: 'visible' },
+  bar: { height: 8, borderRadius: 4 },
+  barTargetLine: {
+    position: 'absolute', top: -2, bottom: -2, width: 2,
+    backgroundColor: colors.text, opacity: 0.5,
+  },
+  legendRow: { flexDirection: 'row', alignItems: 'center', marginTop: 8, gap: 6 },
+  legendDot: { width: 8, height: 2, backgroundColor: colors.text, opacity: 0.5 },
+  legendText: { fontSize: 10, color: colors.textTertiary, fontWeight: '600' },
   dayVal: { width: 90, fontSize: 11, fontWeight: '600', color: colors.text, textAlign: 'right' },
+
+  // Kampanya carousel
+  campCard: {
+    width: 220,
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    borderWidth: 1, borderColor: colors.border,
+    overflow: 'hidden',
+    ...shadow.sm,
+  },
+  campBanner: { padding: 12, minHeight: 56 },
+  campBrand: { fontSize: 10, fontWeight: '900', letterSpacing: 1, textTransform: 'uppercase' },
+  campDiscount: {
+    alignSelf: 'flex-start', marginTop: 6,
+    backgroundColor: 'rgba(0,0,0,0.15)',
+    paddingHorizontal: 10, paddingVertical: 3,
+    borderRadius: radius.full,
+  },
+  campDiscountText: { fontSize: 11, fontWeight: '800' },
+  campTitle: { fontSize: 13, fontWeight: '800', color: colors.text, lineHeight: 18 },
+  campDays: { fontSize: 10, fontWeight: '700', marginTop: 6 },
+
   annCard: {
     flexDirection: 'row',
     backgroundColor: colors.surface,
     borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: 14,
-    marginBottom: 10,
-    ...shadow.sm,
+    borderWidth: 1, borderColor: colors.border,
+    padding: 14, marginBottom: 10, ...shadow.sm,
   },
   annDot: { width: 8, height: 8, borderRadius: 4, marginRight: 12, marginTop: 6 },
   annTitle: { fontSize: 14, fontWeight: '800', color: colors.text },
@@ -322,11 +482,8 @@ const styles = StyleSheet.create({
   annMeta: { fontSize: 10, color: colors.textTertiary, marginTop: 6, fontWeight: '600' },
   errorStrip: {
     backgroundColor: colors.criticalBg,
-    borderColor: '#fde68a',
-    borderWidth: 1,
-    borderRadius: radius.md,
-    padding: 12,
-    marginBottom: 14,
+    borderColor: '#fde68a', borderWidth: 1,
+    borderRadius: radius.md, padding: 12, marginBottom: 14,
   },
   errorText: { color: colors.critical, fontSize: 12, fontWeight: '600' },
   linkCard: {

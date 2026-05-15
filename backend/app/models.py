@@ -18,6 +18,7 @@ class User(Base):
     role = Column(String(20), nullable=False, default="admin")
     cluster_index = Column(Integer, nullable=True)
     is_active = Column(Integer, default=1)
+    monthly_target = Column(Float, nullable=True, default=0)
     created_at = Column(DateTime, default=datetime.utcnow)
 
 
@@ -167,6 +168,23 @@ class Announcement(Base):
     title = Column(String(300), nullable=False)
     content = Column(Text, nullable=False)
     category = Column(String(50), nullable=False, default="general")
+    author_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    is_active = Column(Integer, default=1)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    author = relationship("User")
+
+
+class Campaign(Base):
+    __tablename__ = "campaigns"
+
+    id = Column(Integer, primary_key=True, index=True)
+    title = Column(String(300), nullable=False)
+    brand = Column(String(50), nullable=False, default="Lay's")  # Lay's, Doritos, Cheetos, Ruffles, Cipsi, Tang
+    description = Column(Text, nullable=False)
+    discount_text = Column(String(100), nullable=True)  # "%15 indirim", "2 alana 1 bedava"
+    valid_from = Column(Date, nullable=True)
+    valid_until = Column(Date, nullable=True)
     author_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     is_active = Column(Integer, default=1)
     created_at = Column(DateTime, default=datetime.utcnow)

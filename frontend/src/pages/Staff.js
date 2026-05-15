@@ -5,7 +5,7 @@ export default function Staff() {
   const [users, setUsers] = useState([]);
   const [showDialog, setShowDialog] = useState(false);
   const [editUser, setEditUser] = useState(null);
-  const [form, setForm] = useState({ full_name: "", email: "", password: "", company: "", role: "sales_rep", cluster_index: "" });
+  const [form, setForm] = useState({ full_name: "", email: "", password: "", company: "", role: "sales_rep", cluster_index: "", monthly_target: "" });
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -18,7 +18,7 @@ export default function Staff() {
 
   const openCreate = () => {
     setEditUser(null);
-    setForm({ full_name: "", email: "", password: "", company: "", role: "sales_rep", cluster_index: "" });
+    setForm({ full_name: "", email: "", password: "", company: "", role: "sales_rep", cluster_index: "", monthly_target: "" });
     setShowDialog(true);
   };
 
@@ -31,6 +31,7 @@ export default function Staff() {
       company: u.company || "",
       role: u.role,
       cluster_index: u.cluster_index ?? "",
+      monthly_target: u.monthly_target ?? "",
     });
     setShowDialog(true);
   };
@@ -38,8 +39,13 @@ export default function Staff() {
   const handleSave = async () => {
     setSaving(true);
     try {
+      const buildPayload = () => ({
+        ...form,
+        cluster_index: form.cluster_index === "" ? null : Number(form.cluster_index),
+        monthly_target: form.monthly_target === "" || form.monthly_target === null ? 0 : Number(form.monthly_target),
+      });
       if (editUser) {
-        const payload = { ...form, cluster_index: form.cluster_index === "" ? null : Number(form.cluster_index) };
+        const payload = buildPayload();
         if (!payload.password) delete payload.password;
         await api.put(`/auth/users/${editUser.id}`, payload);
       } else {
@@ -48,10 +54,7 @@ export default function Staff() {
           setSaving(false);
           return;
         }
-        await api.post("/auth/users", {
-          ...form,
-          cluster_index: form.cluster_index === "" ? null : Number(form.cluster_index),
-        });
+        await api.post("/auth/users", buildPayload());
       }
       setShowDialog(false);
       loadUsers();
@@ -129,6 +132,7 @@ export default function Staff() {
                     <th>Email</th>
                     <th>Firma</th>
                     <th>Bölge (Küme)</th>
+                    <th>Aylık Hedef</th>
                     <th>Durum</th>
                     <th style={{ textAlign: "right" }}>İşlemler</th>
                   </tr>
@@ -146,6 +150,11 @@ export default function Staff() {
                         ) : (
                           <span className="cell-dim">Atanmadı</span>
                         )}
+                      </td>
+                      <td className="cell-mono">
+                        {u.monthly_target && u.monthly_target > 0
+                          ? `${Number(u.monthly_target).toLocaleString("tr-TR")} ₺`
+                          : <span className="cell-dim">—</span>}
                       </td>
                       <td>
                         <span
@@ -244,11 +253,20 @@ export default function Staff() {
                 </div>
               </div>
               {form.role === "sales_rep" && (
-                <div className="form-group">
-                  <label>Atanacak Bölge (Küme No)</label>
-                  <input className="form-input" type="number" min="0" value={form.cluster_index} onChange={(e) => update("cluster_index", e.target.value)} placeholder="Küme numarası (0'dan başlar)" />
-                  <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 4 }}>
-                    Tamamlanmış planlardaki küme numarasına göre atama yapın. Sonra da atayabilirsiniz.
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>Atanacak Bölge (Küme No)</label>
+                    <input className="form-input" type="number" min="0" value={form.cluster_index} onChange={(e) => update("cluster_index", e.target.value)} placeholder="0, 1, 2..." />
+                    <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 4 }}>
+                      Tamamlanmış planlardaki küme numarası
+                    </div>
+                  </div>
+                  <div className="form-group">
+                    <label>Aylık Satış Hedefi (₺)</label>
+                    <input className="form-input" type="number" min="0" step="1000" value={form.monthly_target} onChange={(e) => update("monthly_target", e.target.value)} placeholder="örn. 500000" />
+                    <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 4 }}>
+                      Mobil app'te hedef ilerlemesi olarak gösterilir
+                    </div>
                   </div>
                 </div>
               )}

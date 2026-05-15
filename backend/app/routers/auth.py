@@ -124,6 +124,7 @@ def create_user(
         company=body.company,
         role=body.role,
         cluster_index=body.cluster_index,
+        monthly_target=body.monthly_target or 0,
     )
     db.add(user)
     db.commit()
@@ -160,6 +161,8 @@ def update_user(
         user.is_active = body.is_active
     if body.password is not None and body.password.strip():
         user.hashed_password = hash_password(body.password)
+    if body.monthly_target is not None:
+        user.monthly_target = body.monthly_target
 
     db.commit()
     db.refresh(user)

@@ -176,6 +176,7 @@ class UserOut(BaseModel):
     role: str
     cluster_index: int | None
     is_active: int
+    monthly_target: float | None = 0
     created_at: datetime
 
     model_config = {"from_attributes": True}
@@ -237,6 +238,7 @@ class UserCreateByAdmin(BaseModel):
     company: str | None = None
     role: str = "sales_rep"
     cluster_index: int | None = None
+    monthly_target: float | None = 0
 
 
 class UserUpdateByAdmin(BaseModel):
@@ -247,3 +249,40 @@ class UserUpdateByAdmin(BaseModel):
     cluster_index: int | None = None
     is_active: int | None = None
     password: str | None = None
+    monthly_target: float | None = None
+
+
+# ─── Campaign ────────────────────────────
+class CampaignCreate(BaseModel):
+    title: str
+    brand: str = "Lay's"
+    description: str
+    discount_text: str | None = None
+    valid_from: date | None = None
+    valid_until: date | None = None
+
+
+class CampaignUpdate(BaseModel):
+    title: str | None = None
+    brand: str | None = None
+    description: str | None = None
+    discount_text: str | None = None
+    valid_from: date | None = None
+    valid_until: date | None = None
+    is_active: int | None = None
+
+
+class CampaignOut(BaseModel):
+    id: int
+    title: str
+    brand: str
+    description: str
+    discount_text: str | None
+    valid_from: date | None
+    valid_until: date | None
+    author_id: int
+    author_name: str | None = None
+    is_active: int
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
