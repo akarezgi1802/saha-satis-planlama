@@ -54,9 +54,11 @@ def install_page(request: Request):
         )
         primary_note = "Android için APK'yı indir. iPhone veya bilgisayar için tarayıcı versiyonunu kullan."
 
-    # QR — Build URL'sinin QR kodu (Google Charts API ile, server-side rendering yok)
+    # QR — install page'in kendisine yönlendir (cihaz algılayıp doğru yere gönderir).
+    # Bilgisayardan açan biri telefonuyla okuyunca kendi cihazına uygun seçeneği görür.
     import urllib.parse
-    qr_data = urllib.parse.quote(android_link, safe="")
+    install_self_url = str(request.url).split("?")[0]
+    qr_data = urllib.parse.quote(install_self_url, safe="")
     qr_img = f"https://api.qrserver.com/v1/create-qr-code/?size=240x240&data={qr_data}&color=1e1b4b&bgcolor=ffffff"
 
     html = f"""<!DOCTYPE html>
