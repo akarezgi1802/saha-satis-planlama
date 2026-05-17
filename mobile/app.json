@@ -26,7 +26,10 @@
         "backgroundColor": "#1e1b4b"
       },
       "edgeToEdgeEnabled": true,
-      "permissions": ["android.permission.CAMERA"]
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png",
@@ -40,6 +43,11 @@
           "cameraPermission": "QR kod ile giriş yapabilmek için kameraya erişim gerekiyor."
         }
       ]
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "c8999a4b-8afc-4d24-81b4-cb02ce2a22e4"
+      }
+    }
   }
 }
