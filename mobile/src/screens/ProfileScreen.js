@@ -1,6 +1,6 @@
 import React, { useCallback, useState } from 'react';
 import {
-  View, Text, ScrollView, StyleSheet, TouchableOpacity, Alert, StatusBar, ActivityIndicator,
+  View, Text, ScrollView, StyleSheet, TouchableOpacity, Alert, StatusBar, ActivityIndicator, Platform,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -29,6 +29,13 @@ export default function ProfileScreen() {
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
   const onLogout = () => {
+    // Web'de Alert.alert yerine native browser confirm kullan
+    if (Platform.OS === 'web') {
+      if (typeof window !== 'undefined' && window.confirm('Çıkış yapmak istediğine emin misin?')) {
+        logout();
+      }
+      return;
+    }
     Alert.alert('Çıkış Yap', 'Çıkış yapmak istediğine emin misin?', [
       { text: 'İptal', style: 'cancel' },
       { text: 'Çıkış Yap', style: 'destructive', onPress: logout },
