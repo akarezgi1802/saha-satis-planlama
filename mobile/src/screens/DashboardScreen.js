@@ -9,7 +9,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle } from 'react-native-svg';
 import { useAuth } from '../AuthContext';
 import api from '../api';
-import { colors, radius, spacing, shadow, brandGradient, brandGradient, positiveGradient } from '../theme';
+import { colors, radius, spacing, shadow, brandGradient, positiveGradient } from '../theme';
 import { Card, KpiTile, SectionTitle, EmptyState } from '../components/ui';
 import HeaderActions from '../components/HeaderActions';
 
