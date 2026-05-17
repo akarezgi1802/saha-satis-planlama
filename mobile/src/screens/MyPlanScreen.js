@@ -234,7 +234,7 @@ export default function MyPlanScreen({ navigation }) {
       ) : !route || todayStops.length === 0 ? (
         <View style={{ padding: 14 }}>
           <Card>
-            <EmptyState icon="🌴" title="Bu gün için ziyaret yok" subtitle="Başka bir gün seç ya da yöneticiyle iletişime geç" />
+            <EmptyState icon="📭" title="Bu gün için ziyaret yok" subtitle="Başka bir gün seç ya da yöneticiyle iletişime geç" />
           </Card>
         </View>
       ) : view === 'map' ? (

@@ -174,8 +174,8 @@ export default function DashboardScreen({ navigation }) {
                   <Text style={styles.targetLabel}>BUGÜN'ÜN ZİYARET HEDEFİ</Text>
                   {isWeekend ? (
                     <>
-                      <Text style={styles.targetValue}>🌴 Hafta sonu</Text>
-                      <Text style={styles.targetSubtle}>Bugün rota yok, dinlen</Text>
+                      <Text style={styles.targetValue}>Hafta sonu</Text>
+                      <Text style={styles.targetSubtle}>Bugün rota yok — dinlenmenin keyfini çıkar ☕</Text>
                     </>
                   ) : planned > 0 ? (
                     <>

@@ -219,9 +219,7 @@ def install_page(request: Request):
     <h1>Saha Satış</h1>
     <p class="subtitle">Trafik bazlı akıllı rotalama</p>
 
-    <div style="text-align:center; margin-bottom: 24px;">
-      <span class="pill">● Canlı backend'e bağlı</span>
-    </div>
+    <div style="height: 8px;"></div>
 
     <!-- Ana CTA -->
     <div class="card">
@@ -260,24 +258,29 @@ def install_page(request: Request):
       </ol>
     </div>
 
-    <!-- iPhone adımları -->
+    <!-- iPhone bölümü -->
     <div class="card">
       <div class="card-header">
         <div class="card-icon">🍎</div>
-        <div class="card-title">iPhone — Web Sürümü (kurulum yok)</div>
+        <div class="card-title">iPhone kullanıyorsan</div>
       </div>
-      <ol class="steps">
-        <li>Yukarıdaki "Safari'de Aç" butonuna dokun</li>
-        <li>Saha Satış arayüzü Safari'de açılır — direkt kullanabilirsin</li>
-        <li>App gibi çalışmasını istersen: paylaş menüsü (□↑) → "Ana Ekrana Ekle"</li>
-        <li>Bir simge oluşur, dokununca tam ekran açılır</li>
-      </ol>
-      <p class="note">Harita ve QR tarama tarayıcıda yok — kalan tüm özellikler çalışır.</p>
+      <p class="card-text" style="margin-bottom: 14px;">
+        Uygulamamız şu an iOS için <strong style="color: #fff;">web sürümünde</strong> mevcut.
+        Kurulum gerekmiyor — Safari'de tek dokunuşla açılıyor.
+      </p>
+      <p class="card-text" style="margin-bottom: 14px;">
+        Eğer <strong style="color: #fff;">app gibi çalışsın</strong> istersen, sayfayı açtıktan
+        sonra Safari'nin paylaş menüsünden (alt çubuktaki ↑ simgesi)
+        <strong style="color: #fff;">"Ana Ekrana Ekle"</strong> seçeneğine dokun.
+      </p>
+      <p class="card-text">
+        Ana ekranında ayrı bir simge oluşur. Dokunduğunda tarayıcı çubukları olmadan
+        tam ekran açılır — tıpkı yüklenmiş bir uygulama gibi 📱
+      </p>
     </div>
 
     <p class="footer">
-      Saha Satış Planlama · Karar Destek Sistemi<br/>
-      Demo amaçlıdır — gerçek backend (Render + Neon DB) kullanır
+      Saha Satış Planlama · Trafik bazlı akıllı rotalama
     </p>
   </div>
 </body>
