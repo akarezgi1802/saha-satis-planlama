@@ -1,12 +1,17 @@
 """
 Model 3: TDVRP - Time Dependent Vehicle Routing Problem
 Orijinal kod: TDVRP vs Static VRP Karsilastirma
-TomTom API ile gercek trafik verileri kullanir.
+TomTom Matrix API ile gercek trafik verileri kullanir (plan optimizasyonu icin).
 Pipeline entegrasyonu icin solve_route() wrapper fonksiyonu eklenmistir.
+
 solve_tdvrp ve evaluate_route_with_real_traffic fonksiyonlari
 orijinal koddan degistirilmeden alinmistir.
+
+NOT: Aynı TOMTOM_API_KEY env var'i hem burada (Matrix API - planlama),
+hem de services/tomtom.py'da (Routing API - mobile gösterim) kullanilir.
 """
 import math
+import os
 import time as time_module
 from datetime import datetime, timedelta
 import pulp
@@ -14,7 +19,9 @@ import requests
 import numpy as np
 
 
-API_KEY = "RqucU21MbLqBahCSnZh1KkyYttdSlR7m"
+# TomTom API key: önce env var (production), yoksa eski hardcoded fallback (eski)
+# Yeni key Render'a eklendiğinde otomatik olarak yeni key kullanılır.
+API_KEY = os.getenv("TOMTOM_API_KEY", "").strip() or "RqucU21MbLqBahCSnZh1KkyYttdSlR7m"
 
 WORKDAY_START_HOUR = 8
 NUM_SLOTS = 5

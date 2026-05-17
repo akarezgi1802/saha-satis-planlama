@@ -16,7 +16,13 @@ from typing import Iterable, Optional
 
 import requests
 
-TOMTOM_API_KEY = os.getenv("TOMTOM_API_KEY", "").strip()
+# Aynı TOMTOM_API_KEY env var'i hem burada (Routing API) hem
+# services/routing.py'da (Matrix API) kullanılır. Env yoksa eski
+# hardcoded key fallback (services/routing.py ile uyumlu).
+TOMTOM_API_KEY = (
+    os.getenv("TOMTOM_API_KEY", "").strip()
+    or "RqucU21MbLqBahCSnZh1KkyYttdSlR7m"
+)
 TOMTOM_ROUTING_BASE = "https://api.tomtom.com/routing/1/calculateRoute"
 
 # Ortalama şehir içi hız (km/sa) — fallback'te tahmini süre için
