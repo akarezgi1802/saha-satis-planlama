@@ -448,6 +448,162 @@ def get_sustainability(
     }
 
 
+@router.get("/leaderboard")
+def get_leaderboard(
+    period: str = Query("week", regex="^(week|month|all)$"),
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Tüm satış temsilcilerinin sıralaması — haftalık/aylık/tüm zamanlar."""
+    today = date.today()
+    if period == "week":
+        start_date = today - timedelta(days=today.weekday())
+    elif period == "month":
+        start_date = today.replace(day=1)
+    else:
+        start_date = date(2000, 1, 1)
+
+    reps = db.query(User).filter(User.role == "sales_rep", User.is_active == 1).all()
+    rows = []
+    for rep in reps:
+        visits = db.query(SalesVisit).filter(
+            SalesVisit.user_id == rep.id,
+            SalesVisit.visit_date >= start_date,
+            SalesVisit.visit_date <= today,
+            SalesVisit.visited == 1,
+        ).all()
+        total_sales = sum(v.sale_amount for v in visits)
+        visit_count = len(visits)
+        customer_count = len(set(v.customer_id for v in visits))
+
+        rows.append({
+            "user_id": rep.id,
+            "full_name": rep.full_name,
+            "cluster_index": rep.cluster_index,
+            "total_sales": total_sales,
+            "visit_count": visit_count,
+            "customer_count": customer_count,
+            "score": total_sales + visit_count * 1000,  # gemiş skor formülü
+            "is_me": rep.id == user.id,
+        })
+
+    # Skora göre sırala
+    rows.sort(key=lambda r: r["score"], reverse=True)
+    # Rank ekle
+    for i, r in enumerate(rows):
+        r["rank"] = i + 1
+
+    # Benim sıram
+    my_rank = next((r["rank"] for r in rows if r["is_me"]), None)
+
+    return {
+        "period": period,
+        "start_date": start_date.isoformat(),
+        "end_date": today.isoformat(),
+        "leaderboard": rows[:10],  # ilk 10
+        "my_rank": my_rank,
+        "total_reps": len(rows),
+    }
+
+
+@router.get("/badges")
+def get_badges(
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Kullanıcının kazandığı rozetler — aktivite/sürdürülebilirlik bazlı."""
+    today = date.today()
+
+    # Tüm ziyaretler
+    all_visits = db.query(SalesVisit).filter(
+        SalesVisit.user_id == user.id,
+        SalesVisit.visited == 1,
+    ).all()
+
+    total_visits = len(all_visits)
+    total_sales = sum(v.sale_amount for v in all_visits)
+    unique_customers = len(set(v.customer_id for v in all_visits))
+
+    # Bu haftaki ziyaretler
+    week_start = today - timedelta(days=today.weekday())
+    week_visits = [v for v in all_visits if v.visit_date >= week_start]
+
+    # Streak hesabı
+    visit_dates = sorted(set(v.visit_date for v in all_visits), reverse=True)
+    streak = 0
+    if visit_dates:
+        check = today
+        for d in visit_dates:
+            if d == check:
+                streak += 1
+                check -= timedelta(days=1)
+            elif d < check:
+                break
+
+    # Sürdürülebilirlik
+    plan = _user_latest_plan(db, user)
+    trees_total = 0
+    if plan and user.cluster_index is not None:
+        from .performance import NAIVE_OVERHEAD_RATIO, CO2_PER_KM, CO2_PER_TREE_YEAR
+        weekly_routes = db.query(DailyRoute).filter(
+            DailyRoute.plan_id == plan.id,
+            DailyRoute.cluster_index == user.cluster_index,
+        ).all()
+        weekly_plan_km = sum(r.total_distance or 0 for r in weekly_routes)
+        total_stops_in_plan = sum(r.customer_count or 0 for r in weekly_routes)
+        if total_stops_in_plan > 0:
+            km_per_visit = weekly_plan_km / total_stops_in_plan
+            km_actual = total_visits * km_per_visit
+            km_saved = km_actual * NAIVE_OVERHEAD_RATIO
+            co2_saved = km_saved * CO2_PER_KM
+            trees_total = co2_saved / CO2_PER_TREE_YEAR
+
+    # Rozet tanımları — kazanıldı mı kontrolü
+    badge_defs = [
+        {"key": "first_visit", "name": "İlk Ziyaret", "icon": "🎯",
+         "desc": "İlk ziyaretini tamamladın", "earned": total_visits >= 1, "progress": min(1, total_visits), "target": 1},
+        {"key": "explorer", "name": "Kaşif", "icon": "🗺️",
+         "desc": "10 farklı müşteriye ulaştın", "earned": unique_customers >= 10, "progress": min(10, unique_customers), "target": 10},
+        {"key": "veteran", "name": "Tecrübeli", "icon": "🥇",
+         "desc": "50 ziyaret tamamladın", "earned": total_visits >= 50, "progress": min(50, total_visits), "target": 50},
+        {"key": "centurion", "name": "Yüzbaşı", "icon": "💯",
+         "desc": "100 ziyaret tamamladın", "earned": total_visits >= 100, "progress": min(100, total_visits), "target": 100},
+        {"key": "streak_3", "name": "3 Günlük Seri", "icon": "🔥",
+         "desc": "3 gün üst üste ziyaret", "earned": streak >= 3, "progress": min(3, streak), "target": 3},
+        {"key": "streak_7", "name": "Haftalık Seri", "icon": "⚡",
+         "desc": "7 gün üst üste ziyaret", "earned": streak >= 7, "progress": min(7, streak), "target": 7},
+        {"key": "tree_1", "name": "İlk Ağaç", "icon": "🌱",
+         "desc": "1 ağaç eşdeğeri CO₂ tasarrufu", "earned": trees_total >= 1, "progress": min(1, trees_total), "target": 1},
+        {"key": "tree_5", "name": "Küçük Orman", "icon": "🌳",
+         "desc": "5 ağaç eşdeğeri CO₂ tasarrufu", "earned": trees_total >= 5, "progress": min(5, trees_total), "target": 5},
+        {"key": "tree_20", "name": "Yeşil Şampiyon", "icon": "🌲",
+         "desc": "20 ağaç eşdeğeri CO₂ tasarrufu", "earned": trees_total >= 20, "progress": min(20, trees_total), "target": 20},
+        {"key": "sales_100k", "name": "İlk 100K", "icon": "💰",
+         "desc": "100.000 ₺ satış", "earned": total_sales >= 100000, "progress": min(100000, total_sales), "target": 100000},
+        {"key": "sales_1m", "name": "Milyoner", "icon": "💎",
+         "desc": "1.000.000 ₺ satış", "earned": total_sales >= 1000000, "progress": min(1000000, total_sales), "target": 1000000},
+        {"key": "weekly_5", "name": "Bu Hafta Aktif", "icon": "📅",
+         "desc": "Bu hafta 5+ ziyaret", "earned": len(week_visits) >= 5, "progress": min(5, len(week_visits)), "target": 5},
+    ]
+
+    earned = [b for b in badge_defs if b["earned"]]
+    locked = [b for b in badge_defs if not b["earned"]]
+
+    return {
+        "earned_count": len(earned),
+        "total_count": len(badge_defs),
+        "badges": badge_defs,
+        "stats": {
+            "total_visits": total_visits,
+            "unique_customers": unique_customers,
+            "total_sales": total_sales,
+            "streak": streak,
+            "trees_total": round(trees_total, 2),
+            "this_week_visits": len(week_visits),
+        },
+    }
+
+
 @router.get("/admin/all")
 def admin_all_performance(
     start_date: date = Query(None),
