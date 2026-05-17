@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   View, Text, ScrollView, StyleSheet, TouchableOpacity, RefreshControl,
-  ActivityIndicator, StatusBar, Dimensions, Platform,
+  ActivityIndicator, StatusBar, Dimensions, Platform, Linking,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect } from '@react-navigation/native';
@@ -124,6 +124,32 @@ export default function MyPlanScreen({ navigation }) {
     const today = new Date().toISOString().slice(0, 10);
     return visits.some(v => v.customer_id === customerId && v.visit_date === today && v.visited);
   }, [visits]);
+
+  // Sıradaki tamamlanmamış stop = aktif adım
+  const activeStop = useMemo(() => {
+    const route = planData?.routes?.find(r => r.day_of_week === selectedDay);
+    if (!route?.stops) return null;
+    return route.stops.find(s => !isVisited(s.customer_id)) || null;
+  }, [planData, selectedDay, isVisited]);
+
+  const openDirToActive = async (stop) => {
+    if (!stop) return;
+    const lat = stop.x;
+    const lng = stop.y;
+    let url;
+    if (Platform.OS === 'ios') {
+      const googleScheme = `comgooglemaps://?daddr=${lat},${lng}&directionsmode=driving`;
+      const canOpenGoogle = await Linking.canOpenURL(googleScheme).catch(() => false);
+      url = canOpenGoogle ? googleScheme : `https://maps.apple.com/?daddr=${lat},${lng}`;
+    } else if (Platform.OS === 'android') {
+      url = `google.navigation:q=${lat},${lng}&mode=d`;
+      const canOpen = await Linking.canOpenURL(url).catch(() => false);
+      if (!canOpen) url = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=driving`;
+    } else {
+      url = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=driving`;
+    }
+    try { await Linking.openURL(url); } catch {}
+  };
 
   // Map region calc
   const region = useMemo(() => {
@@ -251,6 +277,8 @@ export default function MyPlanScreen({ navigation }) {
             liveRoute={liveRoute}
             liveLoading={liveLoading}
             onRefreshLive={loadLiveRoute}
+            activeStop={activeStop}
+            onActiveDirections={() => openDirToActive(activeStop)}
             onStopPress={(stop) => navigation.navigate('VisitDetail', {
               customerId: stop.customer_id,
               customerName: stop.customer_name,
@@ -272,6 +300,8 @@ export default function MyPlanScreen({ navigation }) {
             liveRoute={liveRoute}
             liveLoading={liveLoading}
             onRefreshLive={loadLiveRoute}
+            activeStop={activeStop}
+            onActiveDirections={() => openDirToActive(activeStop)}
             onStopPress={(stop) => navigation.navigate('VisitDetail', {
               customerId: stop.customer_id,
               customerName: stop.customer_name,
@@ -290,6 +320,8 @@ export default function MyPlanScreen({ navigation }) {
           liveRoute={liveRoute}
           liveLoading={liveLoading}
           onRefreshLive={loadLiveRoute}
+          activeStop={activeStop}
+          onActiveDirections={() => openDirToActive(activeStop)}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.brand} />}
           onStopPress={(stop) => navigation.navigate('VisitDetail', {
             customerId: stop.customer_id,
@@ -303,7 +335,7 @@ export default function MyPlanScreen({ navigation }) {
   );
 }
 
-function MapPlanView({ stops, depot, region, polylineCoords, isVisited, progressPercent, visitedCount, totalDistance, totalTime, liveRoute, liveLoading, onRefreshLive, onStopPress }) {
+function MapPlanView({ stops, depot, region, polylineCoords, isVisited, progressPercent, visitedCount, totalDistance, totalTime, liveRoute, liveLoading, onRefreshLive, activeStop, onActiveDirections, onStopPress }) {
   return (
     <View style={{ flex: 1 }}>
       <MapView
@@ -388,16 +420,46 @@ function MapPlanView({ stops, depot, region, polylineCoords, isVisited, progress
         </View>
       ) : null}
 
-      {/* Bottom overlay: progress + summary */}
+      {/* Bottom overlay: aktif adım + progress + summary */}
       <View style={styles.overlay}>
-        <View style={styles.overlayHeader}>
-          <Text style={styles.overlayTitle}>{visitedCount}/{stops.length} ziyaret tamamlandı</Text>
-          <Text style={styles.overlayPercent}>{progressPercent}%</Text>
-        </View>
+        {activeStop ? (
+          <View style={styles.activeStepRow}>
+            <View style={styles.activeStepLeft}>
+              <Text style={styles.activeStepLabel}>SIRADAKI ADIM</Text>
+              <Text style={styles.activeStepName} numberOfLines={1}>
+                {activeStop.visit_order}. {activeStop.customer_name}
+              </Text>
+              <Text style={styles.activeStepMeta}>
+                Tahmini varış: {fmtMin(activeStop.estimated_arrival_minutes)}
+              </Text>
+            </View>
+            <TouchableOpacity style={styles.activeNavBtn} onPress={onActiveDirections} activeOpacity={0.85}>
+              <Text style={styles.activeNavBtnIcon}>🧭</Text>
+              <Text style={styles.activeNavBtnText}>Yol Tarifi</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.activeDetailBtn} onPress={() => onStopPress(activeStop)} activeOpacity={0.85}>
+              <Text style={styles.activeDetailIcon}>→</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <View style={styles.allDoneRow}>
+            <Text style={styles.allDoneIcon}>✅</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.allDoneTitle}>Bugün için tüm ziyaretler tamamlandı</Text>
+              <Text style={styles.allDoneText}>Depoya dönebilirsin · {visitedCount}/{stops.length} ziyaret</Text>
+            </View>
+          </View>
+        )}
+
         <View style={styles.progressTrack}>
           <View style={[styles.progressFill, { width: `${progressPercent}%` }]} />
         </View>
         <View style={styles.overlayStats}>
+          <View style={styles.overlayStat}>
+            <Text style={styles.overlayStatVal}>{visitedCount}/{stops.length}</Text>
+            <Text style={styles.overlayStatLabel}>ziyaret</Text>
+          </View>
+          <View style={styles.overlayDiv} />
           <View style={styles.overlayStat}>
             <Text style={styles.overlayStatVal}>{totalDistance ? `${Number(totalDistance).toFixed(1)}` : '—'}</Text>
             <Text style={styles.overlayStatLabel}>km</Text>
@@ -411,24 +473,50 @@ function MapPlanView({ stops, depot, region, polylineCoords, isVisited, progress
             </Text>
             <Text style={styles.overlayStatLabel}>{liveRoute ? 'sa:dk' : 'sa'}</Text>
           </View>
-          <View style={styles.overlayDiv} />
-          <View style={styles.overlayStat}>
-            <Text style={styles.overlayStatVal}>{stops.length - visitedCount}</Text>
-            <Text style={styles.overlayStatLabel}>kaldı</Text>
-          </View>
         </View>
       </View>
     </View>
   );
 }
 
-function ListPlanView({ stops, isVisited, progressPercent, visitedCount, totalDistance, liveRoute, liveLoading, onRefreshLive, refreshControl, onStopPress }) {
+function ListPlanView({ stops, isVisited, progressPercent, visitedCount, totalDistance, liveRoute, liveLoading, onRefreshLive, activeStop, onActiveDirections, refreshControl, onStopPress }) {
   return (
     <ScrollView
       style={{ flex: 1 }}
       contentContainerStyle={{ padding: 14, paddingBottom: 40 }}
       refreshControl={refreshControl}
     >
+      {/* Aktif adım kartı — liste view */}
+      {activeStop ? (
+        <View style={styles.activeStepCardList}>
+          <View style={styles.activeStepLeft}>
+            <Text style={[styles.activeStepLabel, { color: 'rgba(255,255,255,0.85)' }]}>SIRADAKI ADIM</Text>
+            <Text style={[styles.activeStepName, { color: '#fff' }]} numberOfLines={1}>
+              {activeStop.visit_order}. {activeStop.customer_name}
+            </Text>
+            <Text style={[styles.activeStepMeta, { color: 'rgba(255,255,255,0.75)' }]}>
+              Tahmini varış: {fmtMin(activeStop.estimated_arrival_minutes)}
+            </Text>
+          </View>
+          <View style={{ gap: 8 }}>
+            <TouchableOpacity style={styles.activeNavBtnListLight} onPress={onActiveDirections}>
+              <Text style={[styles.activeNavBtnText, { color: colors.brand }]}>🧭 Yol Tarifi</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => onStopPress(activeStop)}>
+              <Text style={styles.activeDetailLink}>Detay →</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      ) : (
+        <View style={styles.allDoneCardList}>
+          <Text style={{ fontSize: 28 }}>✅</Text>
+          <View style={{ flex: 1, marginLeft: 12 }}>
+            <Text style={styles.allDoneTitle}>Bugün için tüm ziyaretler tamamlandı</Text>
+            <Text style={[styles.allDoneText, { color: colors.textSecondary }]}>Depoya dönebilirsin</Text>
+          </View>
+        </View>
+      )}
+
       {/* Trafik kartı */}
       {liveRoute ? (
         <View style={styles.trafficCard}>
@@ -653,4 +741,63 @@ const styles = StyleSheet.create({
     marginLeft: 10,
   },
   trafficCardBtnText: { color: colors.brand, fontSize: 18, fontWeight: '800' },
+
+  // Aktif adım — Harita overlay
+  activeStepRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    paddingBottom: 12, marginBottom: 12,
+    borderBottomWidth: 1, borderBottomColor: colors.borderLight,
+  },
+  activeStepLeft: { flex: 1, minWidth: 0 },
+  activeStepLabel: { fontSize: 9, fontWeight: '900', color: colors.brand, letterSpacing: 1, marginBottom: 2 },
+  activeStepName: { fontSize: 14, fontWeight: '800', color: colors.text },
+  activeStepMeta: { fontSize: 10, color: colors.textSecondary, fontWeight: '600', marginTop: 1 },
+  activeNavBtn: {
+    backgroundColor: colors.brand,
+    paddingHorizontal: 14, paddingVertical: 9,
+    borderRadius: radius.full,
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    ...shadow.sm,
+  },
+  activeNavBtnIcon: { fontSize: 14 },
+  activeNavBtnText: { color: '#fff', fontWeight: '800', fontSize: 12 },
+  activeDetailBtn: {
+    width: 38, height: 38, borderRadius: 19,
+    backgroundColor: colors.brandLight,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  activeDetailIcon: { color: colors.brand, fontSize: 22, fontWeight: '800' },
+
+  // Aktif adım — Liste view (mor banner)
+  activeStepCardList: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    backgroundColor: colors.brand,
+    borderRadius: radius.md,
+    padding: 14, marginBottom: 10,
+    ...shadow.md,
+  },
+  activeNavBtnListLight: {
+    backgroundColor: '#fff',
+    paddingHorizontal: 12, paddingVertical: 7,
+    borderRadius: radius.full,
+  },
+  activeDetailLink: { color: '#fff', fontSize: 11, fontWeight: '700', textAlign: 'center' },
+
+  // "Tümü tamam" — Harita overlay
+  allDoneRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    paddingBottom: 12, marginBottom: 12,
+    borderBottomWidth: 1, borderBottomColor: colors.borderLight,
+  },
+  allDoneIcon: { fontSize: 28 },
+  allDoneTitle: { fontSize: 13, fontWeight: '800', color: colors.text },
+  allDoneText: { fontSize: 11, color: colors.textSecondary, fontWeight: '600', marginTop: 1 },
+  allDoneCardList: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: colors.positiveBg,
+    borderColor: colors.positive,
+    borderWidth: 1,
+    borderRadius: radius.md,
+    padding: 14, marginBottom: 10,
+  },
 });

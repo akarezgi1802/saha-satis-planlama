@@ -39,6 +39,7 @@ export default function LeafletPlanMap({
   stops, depot, polylineCoords, isVisited,
   liveRoute, liveLoading, onRefreshLive,
   visitedCount, progressPercent, totalDistance, totalTime,
+  activeStop, onActiveDirections,
   onStopPress,
 }) {
   // Map bounds için tüm koordinatlar
@@ -129,16 +130,45 @@ export default function LeafletPlanMap({
         </View>
       ) : null}
 
-      {/* Bottom overlay */}
+      {/* Bottom overlay: aktif adım + progress */}
       <View style={styles.overlay}>
-        <View style={styles.overlayHeader}>
-          <Text style={styles.overlayTitle}>{visitedCount}/{stops.length} ziyaret tamamlandı</Text>
-          <Text style={styles.overlayPercent}>{progressPercent}%</Text>
-        </View>
+        {activeStop ? (
+          <View style={styles.activeStepRow}>
+            <View style={styles.activeStepLeft}>
+              <Text style={styles.activeStepLabel}>SIRADAKI ADIM</Text>
+              <Text style={styles.activeStepName} numberOfLines={1}>
+                {activeStop.visit_order}. {activeStop.customer_name}
+              </Text>
+              <Text style={styles.activeStepMeta}>
+                Tahmini varış: {fmtMin(activeStop.estimated_arrival_minutes)}
+              </Text>
+            </View>
+            <TouchableOpacity style={styles.activeNavBtn} onPress={onActiveDirections} activeOpacity={0.85}>
+              <Text style={styles.activeNavBtnText}>🧭 Yol Tarifi</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.activeDetailBtn} onPress={() => onStopPress(activeStop)} activeOpacity={0.85}>
+              <Text style={styles.activeDetailIcon}>→</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <View style={styles.allDoneRow}>
+            <Text style={styles.allDoneIcon}>✅</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.allDoneTitle}>Bugün için tüm ziyaretler tamamlandı</Text>
+              <Text style={styles.allDoneText}>Depoya dönebilirsin · {visitedCount}/{stops.length} ziyaret</Text>
+            </View>
+          </View>
+        )}
+
         <View style={styles.progressTrack}>
           <View style={[styles.progressFill, { width: `${progressPercent}%` }]} />
         </View>
         <View style={styles.overlayStats}>
+          <View style={styles.overlayStat}>
+            <Text style={styles.overlayStatVal}>{visitedCount}/{stops.length}</Text>
+            <Text style={styles.overlayStatLabel}>ziyaret</Text>
+          </View>
+          <View style={styles.overlayDiv} />
           <View style={styles.overlayStat}>
             <Text style={styles.overlayStatVal}>{totalDistance ? Number(totalDistance).toFixed(1) : '—'}</Text>
             <Text style={styles.overlayStatLabel}>km</Text>
@@ -152,15 +182,17 @@ export default function LeafletPlanMap({
             </Text>
             <Text style={styles.overlayStatLabel}>{liveRoute ? 'sa:dk' : 'sa'}</Text>
           </View>
-          <View style={styles.overlayDiv} />
-          <View style={styles.overlayStat}>
-            <Text style={styles.overlayStatVal}>{stops.length - visitedCount}</Text>
-            <Text style={styles.overlayStatLabel}>kaldı</Text>
-          </View>
         </View>
       </View>
     </View>
   );
+}
+
+function fmtMin(m) {
+  if (m == null) return '—';
+  const h = Math.floor(m / 60);
+  const mm = Math.round(m % 60);
+  return h > 0 ? `${h}sa ${mm}dk` : `${mm}dk`;
 }
 
 const styles = StyleSheet.create({
@@ -205,4 +237,35 @@ const styles = StyleSheet.create({
   overlayDiv: { width: 1, backgroundColor: colors.border, marginVertical: 2 },
   overlayStatVal: { fontSize: 16, fontWeight: '800', color: colors.text },
   overlayStatLabel: { fontSize: 10, fontWeight: '700', color: colors.textTertiary, textTransform: 'uppercase' },
+
+  activeStepRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    paddingBottom: 12, marginBottom: 12,
+    borderBottomWidth: 1, borderBottomColor: colors.borderLight,
+  },
+  activeStepLeft: { flex: 1, minWidth: 0 },
+  activeStepLabel: { fontSize: 9, fontWeight: '900', color: colors.brand, letterSpacing: 1, marginBottom: 2 },
+  activeStepName: { fontSize: 14, fontWeight: '800', color: colors.text },
+  activeStepMeta: { fontSize: 10, color: colors.textSecondary, fontWeight: '600', marginTop: 1 },
+  activeNavBtn: {
+    backgroundColor: colors.brand,
+    paddingHorizontal: 14, paddingVertical: 9,
+    borderRadius: radius.full,
+    ...shadow.sm,
+  },
+  activeNavBtnText: { color: '#fff', fontWeight: '800', fontSize: 12 },
+  activeDetailBtn: {
+    width: 38, height: 38, borderRadius: 19,
+    backgroundColor: colors.brandLight,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  activeDetailIcon: { color: colors.brand, fontSize: 22, fontWeight: '800' },
+  allDoneRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    paddingBottom: 12, marginBottom: 12,
+    borderBottomWidth: 1, borderBottomColor: colors.borderLight,
+  },
+  allDoneIcon: { fontSize: 28 },
+  allDoneTitle: { fontSize: 13, fontWeight: '800', color: colors.text },
+  allDoneText: { fontSize: 11, color: colors.textSecondary, fontWeight: '600', marginTop: 1 },
 });
