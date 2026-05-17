@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   View, Text, ScrollView, StyleSheet, TouchableOpacity, RefreshControl,
   ActivityIndicator, StatusBar, Dimensions, Platform,
@@ -49,6 +49,8 @@ export default function MyPlanScreen({ navigation }) {
   // Web'de harita yok, varsayılan liste
   const [view, setView] = useState(IS_WEB ? 'list' : 'map'); // 'map' | 'list'
   const [visits, setVisits] = useState([]);
+  const [liveRoute, setLiveRoute] = useState(null);
+  const [liveLoading, setLiveLoading] = useState(false);
 
   const load = useCallback(async () => {
     setError('');
@@ -90,7 +92,27 @@ export default function MyPlanScreen({ navigation }) {
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
-  const onRefresh = () => { setRefreshing(true); load(); };
+  // Plan + selectedDay değiştiğinde TomTom trafik rotasını çek
+  const loadLiveRoute = useCallback(async () => {
+    if (!latestPlan || user?.cluster_index == null) {
+      setLiveRoute(null);
+      return;
+    }
+    setLiveLoading(true);
+    try {
+      const r = await api.get(`/routing/live/${latestPlan.id}/${selectedDay}`);
+      setLiveRoute(r.data?.has_route ? r.data : null);
+    } catch (e) {
+      setLiveRoute(null);
+    } finally {
+      setLiveLoading(false);
+    }
+  }, [latestPlan, selectedDay, user?.cluster_index]);
+
+  // selectedDay veya plan değişince yeniden çağır
+  useEffect(() => { loadLiveRoute(); }, [loadLiveRoute]);
+
+  const onRefresh = () => { setRefreshing(true); load(); loadLiveRoute(); };
 
   const route = planData?.routes?.find(r => r.day_of_week === selectedDay);
   const todayStops = route?.stops || [];
@@ -123,8 +145,13 @@ export default function MyPlanScreen({ navigation }) {
     };
   }, [todayStops, depot]);
 
-  // Polyline coords: depot → stops → depot
+  // Polyline coords: TomTom'dan gerçek yol varsa onu kullan, yoksa düz çizgiler
   const polylineCoords = useMemo(() => {
+    // TomTom canlı rota
+    if (liveRoute?.polyline?.length) {
+      return liveRoute.polyline.map(p => ({ latitude: p.lat, longitude: p.lng }));
+    }
+    // Fallback: düz çizgilerle depot → stops → depot
     if (!todayStops.length) return [];
     const pts = todayStops.map(s => ({ latitude: s.x, longitude: s.y }));
     if (depot) {
@@ -132,7 +159,7 @@ export default function MyPlanScreen({ navigation }) {
       pts.push({ latitude: depot.depot_x, longitude: depot.depot_y });
     }
     return pts;
-  }, [todayStops, depot]);
+  }, [todayStops, depot, liveRoute]);
 
   const visitedCount = todayStops.filter(s => isVisited(s.customer_id)).length;
   const progressPercent = todayStops.length ? Math.round((visitedCount / todayStops.length) * 100) : 0;
@@ -215,8 +242,11 @@ export default function MyPlanScreen({ navigation }) {
           isVisited={isVisited}
           progressPercent={progressPercent}
           visitedCount={visitedCount}
-          totalDistance={route.total_distance}
+          totalDistance={liveRoute?.distance_km || route.total_distance}
           totalTime={route.total_time_minutes}
+          liveRoute={liveRoute}
+          liveLoading={liveLoading}
+          onRefreshLive={loadLiveRoute}
           onStopPress={(stop) => navigation.navigate('VisitDetail', {
             customerId: stop.customer_id,
             customerName: stop.customer_name,
@@ -230,7 +260,10 @@ export default function MyPlanScreen({ navigation }) {
           isVisited={isVisited}
           progressPercent={progressPercent}
           visitedCount={visitedCount}
-          totalDistance={route.total_distance}
+          totalDistance={liveRoute?.distance_km || route.total_distance}
+          liveRoute={liveRoute}
+          liveLoading={liveLoading}
+          onRefreshLive={loadLiveRoute}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.brand} />}
           onStopPress={(stop) => navigation.navigate('VisitDetail', {
             customerId: stop.customer_id,
@@ -244,7 +277,7 @@ export default function MyPlanScreen({ navigation }) {
   );
 }
 
-function MapPlanView({ stops, depot, region, polylineCoords, isVisited, progressPercent, visitedCount, totalDistance, totalTime, onStopPress }) {
+function MapPlanView({ stops, depot, region, polylineCoords, isVisited, progressPercent, visitedCount, totalDistance, totalTime, liveRoute, liveLoading, onRefreshLive, onStopPress }) {
   return (
     <View style={{ flex: 1 }}>
       <MapView
@@ -300,6 +333,35 @@ function MapPlanView({ stops, depot, region, polylineCoords, isVisited, progress
         })}
       </MapView>
 
+      {/* Trafik bilgisi (üstte, harita üzerinde) */}
+      {liveRoute ? (
+        <View style={styles.trafficBanner}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.trafficText}>{liveRoute.summary_text}</Text>
+            <Text style={styles.trafficProvider}>
+              {liveRoute.provider === 'tomtom'
+                ? '⚡ TomTom · canlı trafik'
+                : '📐 Tahmini (TomTom key ekleyince canlı olur)'}
+            </Text>
+          </View>
+          <TouchableOpacity
+            onPress={onRefreshLive}
+            disabled={liveLoading}
+            style={styles.trafficRefresh}
+            activeOpacity={0.7}
+          >
+            {liveLoading
+              ? <ActivityIndicator size="small" color="#fff" />
+              : <Text style={styles.trafficRefreshText}>↻</Text>}
+          </TouchableOpacity>
+        </View>
+      ) : liveLoading ? (
+        <View style={styles.trafficBanner}>
+          <ActivityIndicator size="small" color="#fff" />
+          <Text style={[styles.trafficText, { marginLeft: 8 }]}>Trafik yükleniyor…</Text>
+        </View>
+      ) : null}
+
       {/* Bottom overlay: progress + summary */}
       <View style={styles.overlay}>
         <View style={styles.overlayHeader}>
@@ -311,13 +373,17 @@ function MapPlanView({ stops, depot, region, polylineCoords, isVisited, progress
         </View>
         <View style={styles.overlayStats}>
           <View style={styles.overlayStat}>
-            <Text style={styles.overlayStatVal}>{totalDistance ? `${totalDistance.toFixed(1)}` : '—'}</Text>
+            <Text style={styles.overlayStatVal}>{totalDistance ? `${Number(totalDistance).toFixed(1)}` : '—'}</Text>
             <Text style={styles.overlayStatLabel}>km</Text>
           </View>
           <View style={styles.overlayDiv} />
           <View style={styles.overlayStat}>
-            <Text style={styles.overlayStatVal}>{totalTime ? `${(totalTime / 60).toFixed(1)}` : '—'}</Text>
-            <Text style={styles.overlayStatLabel}>sa</Text>
+            <Text style={styles.overlayStatVal}>
+              {liveRoute?.traffic_time_min
+                ? `${Math.floor(liveRoute.traffic_time_min / 60)}:${String(liveRoute.traffic_time_min % 60).padStart(2, '0')}`
+                : totalTime ? `${(totalTime / 60).toFixed(1)}` : '—'}
+            </Text>
+            <Text style={styles.overlayStatLabel}>{liveRoute ? 'sa:dk' : 'sa'}</Text>
           </View>
           <View style={styles.overlayDiv} />
           <View style={styles.overlayStat}>
@@ -330,13 +396,28 @@ function MapPlanView({ stops, depot, region, polylineCoords, isVisited, progress
   );
 }
 
-function ListPlanView({ stops, isVisited, progressPercent, visitedCount, totalDistance, refreshControl, onStopPress }) {
+function ListPlanView({ stops, isVisited, progressPercent, visitedCount, totalDistance, liveRoute, liveLoading, onRefreshLive, refreshControl, onStopPress }) {
   return (
     <ScrollView
       style={{ flex: 1 }}
       contentContainerStyle={{ padding: 14, paddingBottom: 40 }}
       refreshControl={refreshControl}
     >
+      {/* Trafik kartı */}
+      {liveRoute ? (
+        <View style={styles.trafficCard}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.trafficCardText}>{liveRoute.summary_text}</Text>
+            <Text style={styles.trafficCardMeta}>
+              {liveRoute.distance_km} km · {liveRoute.provider === 'tomtom' ? '⚡ Canlı trafik' : '📐 Tahmin'}
+            </Text>
+          </View>
+          <TouchableOpacity onPress={onRefreshLive} disabled={liveLoading} style={styles.trafficCardBtn}>
+            {liveLoading ? <ActivityIndicator size="small" color={colors.brand} /> : <Text style={styles.trafficCardBtnText}>↻</Text>}
+          </TouchableOpacity>
+        </View>
+      ) : null}
+
       <View style={styles.summaryRow}>
         <View style={[styles.summaryTile, { backgroundColor: colors.brandLight }]}>
           <Text style={styles.summaryNum}>{stops.length}</Text>
@@ -348,7 +429,7 @@ function ListPlanView({ stops, isVisited, progressPercent, visitedCount, totalDi
         </View>
         <View style={[styles.summaryTile, { backgroundColor: colors.criticalBg }]}>
           <Text style={[styles.summaryNum, { color: colors.critical }]}>
-            {totalDistance ? totalDistance.toFixed(1) : '—'}
+            {totalDistance ? Number(totalDistance).toFixed(1) : '—'}
           </Text>
           <Text style={styles.summaryLabel}>km</Text>
         </View>
@@ -511,4 +592,39 @@ const styles = StyleSheet.create({
   stopMeta: { fontSize: 11, color: colors.textSecondary, marginTop: 3, fontWeight: '500' },
   stopFooter: { marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: colors.borderLight },
   stopAction: { color: colors.brand, fontWeight: '700', fontSize: 12 },
+
+  // Trafik
+  trafficBanner: {
+    position: 'absolute', top: 14, left: 14, right: 14,
+    backgroundColor: 'rgba(30, 27, 75, 0.95)',
+    borderRadius: radius.md,
+    padding: 12,
+    flexDirection: 'row', alignItems: 'center',
+    ...shadow.lg,
+  },
+  trafficText: { color: '#fff', fontSize: 13, fontWeight: '700', flex: 1 },
+  trafficProvider: { color: 'rgba(255,255,255,0.6)', fontSize: 10, fontWeight: '600', marginTop: 2 },
+  trafficRefresh: {
+    width: 34, height: 34, borderRadius: 17,
+    backgroundColor: 'rgba(255,255,255,0.18)',
+    alignItems: 'center', justifyContent: 'center',
+    marginLeft: 10,
+  },
+  trafficRefreshText: { color: '#fff', fontSize: 18, fontWeight: '800' },
+  trafficCard: {
+    backgroundColor: '#1e1b4b',
+    borderRadius: radius.md,
+    padding: 12, marginBottom: 10,
+    flexDirection: 'row', alignItems: 'center',
+    ...shadow.md,
+  },
+  trafficCardText: { color: '#fff', fontSize: 13, fontWeight: '700' },
+  trafficCardMeta: { color: 'rgba(255,255,255,0.7)', fontSize: 11, fontWeight: '600', marginTop: 2 },
+  trafficCardBtn: {
+    width: 34, height: 34, borderRadius: 17,
+    backgroundColor: '#fff',
+    alignItems: 'center', justifyContent: 'center',
+    marginLeft: 10,
+  },
+  trafficCardBtnText: { color: colors.brand, fontSize: 18, fontWeight: '800' },
 });
