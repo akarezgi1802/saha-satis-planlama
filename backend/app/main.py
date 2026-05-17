@@ -20,6 +20,11 @@ Base.metadata.create_all(bind=engine)
 def _run_migrations():
     migrations = [
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS monthly_target FLOAT DEFAULT 0",
+        "ALTER TABLE sales_visits ADD COLUMN IF NOT EXISTS check_in_at TIMESTAMP NULL",
+        "ALTER TABLE sales_visits ADD COLUMN IF NOT EXISTS check_out_at TIMESTAMP NULL",
+        "ALTER TABLE sales_visits ADD COLUMN IF NOT EXISTS check_in_lat FLOAT NULL",
+        "ALTER TABLE sales_visits ADD COLUMN IF NOT EXISTS check_in_lng FLOAT NULL",
+        "ALTER TABLE sales_visits ADD COLUMN IF NOT EXISTS distance_from_customer_m FLOAT NULL",
     ]
     with engine.connect() as conn:
         for sql in migrations:

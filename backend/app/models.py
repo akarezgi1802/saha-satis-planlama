@@ -155,6 +155,12 @@ class SalesVisit(Base):
     sale_amount = Column(Float, nullable=False, default=0)
     visited = Column(Integer, nullable=False, default=1)
     notes = Column(Text, nullable=True)
+    # GPS Check-in / Check-out
+    check_in_at = Column(DateTime, nullable=True)
+    check_out_at = Column(DateTime, nullable=True)
+    check_in_lat = Column(Float, nullable=True)
+    check_in_lng = Column(Float, nullable=True)
+    distance_from_customer_m = Column(Float, nullable=True)  # GPS doğrulama mesafesi (metre)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     user = relationship("User")

@@ -10,6 +10,13 @@ import api from '../api';
 import { colors, radius, spacing, shadow, brandGradient, positiveGradient } from '../theme';
 import { Card, GradientButton, Tag, SectionTitle } from '../components/ui';
 
+const IS_WEB = Platform.OS === 'web';
+// expo-location native'de; web'de Geolocation API kullanılır
+let Location;
+if (!IS_WEB) {
+  try { Location = require('expo-location'); } catch {}
+}
+
 export default function VisitDetailScreen({ route, navigation }) {
   const { customerId, customerName, visitOrder, estimatedArrival } = route.params || {};
   const insets = useSafeAreaInsets();
@@ -27,6 +34,10 @@ export default function VisitDetailScreen({ route, navigation }) {
   const [aiLoading, setAiLoading] = useState(false);
   const [aiEnabled, setAiEnabled] = useState(null);
   const [campaigns, setCampaigns] = useState([]);
+
+  // GPS Check-in state
+  const [checkInStatus, setCheckInStatus] = useState(null);
+  const [checkInLoading, setCheckInLoading] = useState(false);
 
   const openDirections = async () => {
     if (!customer) return;
@@ -78,7 +89,7 @@ export default function VisitDetailScreen({ route, navigation }) {
 
   const load = useCallback(async () => {
     try {
-      const [c, v, camp] = await Promise.all([
+      const [c, v, camp, ci] = await Promise.all([
         api.get(`/customers/${customerId}`),
         api.get('/performance/visits', {
           params: {
@@ -87,9 +98,11 @@ export default function VisitDetailScreen({ route, navigation }) {
           },
         }),
         api.get('/campaigns/', { params: { active_only: true } }).catch(() => ({ data: [] })),
+        api.get(`/performance/check-in-status/${customerId}`).catch(() => ({ data: null })),
       ]);
       setCustomer(c.data);
       setCampaigns(camp.data || []);
+      setCheckInStatus(ci.data);
       const today = new Date().toISOString().slice(0, 10);
       const ex = (v.data || []).find(x => x.customer_id === customerId && x.visit_date === today);
       if (ex) {
@@ -103,6 +116,66 @@ export default function VisitDetailScreen({ route, navigation }) {
       setLoading(false);
     }
   }, [customerId]);
+
+  // GPS Check-in
+  const handleCheckIn = async () => {
+    setCheckInLoading(true);
+    try {
+      let lat, lng;
+
+      if (IS_WEB) {
+        // Browser Geolocation API
+        const pos = await new Promise((resolve, reject) => {
+          if (!navigator.geolocation) return reject(new Error('Tarayıcıda GPS yok'));
+          navigator.geolocation.getCurrentPosition(resolve, reject, {
+            enableHighAccuracy: true, timeout: 15000,
+          });
+        });
+        lat = pos.coords.latitude;
+        lng = pos.coords.longitude;
+      } else if (Location) {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== 'granted') {
+          throw new Error('Konum izni reddedildi');
+        }
+        const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+        lat = pos.coords.latitude;
+        lng = pos.coords.longitude;
+      } else {
+        throw new Error('GPS modülü yüklü değil');
+      }
+
+      const r = await api.post('/performance/check-in', {
+        customer_id: customerId, lat, lng,
+      });
+
+      const dist = r.data.distance_m;
+      let msg = `Saat ${new Date(r.data.check_in_at).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}'te check-in yapıldı.\n\n`;
+      if (dist <= 50) msg += `🟢 Mükemmel! Müşteriye ${Math.round(dist)}m mesafedesin.`;
+      else if (dist <= 200) msg += `🟡 Müşteriye ${Math.round(dist)}m mesafedesin.`;
+      else msg += `🟠 Müşteriden ${Math.round(dist)}m uzaktasın — doğru yerde misin?`;
+
+      Alert.alert('✅ Check-in başarılı', msg);
+      load(); // status yenile
+    } catch (e) {
+      Alert.alert('Check-in başarısız', e.response?.data?.detail || e.message || 'Konum alınamadı');
+    } finally {
+      setCheckInLoading(false);
+    }
+  };
+
+  const handleCheckOut = async () => {
+    setCheckInLoading(true);
+    try {
+      const r = await api.post(`/performance/check-out/${customerId}`);
+      Alert.alert('✅ Check-out başarılı', `Ziyaret süresi: ${r.data.duration_text || r.data.duration_minutes + ' dk'}`);
+      load();
+    } catch (e) {
+      Alert.alert('Hata', e.response?.data?.detail || e.message);
+    } finally {
+      setCheckInLoading(false);
+    }
+  };
 
   const BRAND_STYLES = {
     "Lay's":   { bg: '#fcd34d', fg: '#92400e', emoji: '🥔' },
@@ -221,6 +294,76 @@ export default function VisitDetailScreen({ route, navigation }) {
                   ) : null}
                 </View>
               </Card>
+
+              {/* GPS Check-in kartı */}
+              <View style={styles.checkInCard}>
+                {!checkInStatus?.checked_in ? (
+                  <>
+                    <View style={styles.checkInHeader}>
+                      <Text style={styles.checkInTitle}>📍 GPS Check-in</Text>
+                      <Text style={styles.checkInSubtitle}>
+                        Müşteriye geldim — konumun doğrulanıp ziyaret kaydı başlasın
+                      </Text>
+                    </View>
+                    <TouchableOpacity
+                      style={styles.checkInBtn}
+                      onPress={handleCheckIn}
+                      disabled={checkInLoading}
+                      activeOpacity={0.85}
+                    >
+                      {checkInLoading
+                        ? <ActivityIndicator color="#fff" />
+                        : (
+                          <>
+                            <Text style={styles.checkInBtnIcon}>📍</Text>
+                            <Text style={styles.checkInBtnText}>Müşteriye Geldim</Text>
+                          </>
+                        )}
+                    </TouchableOpacity>
+                  </>
+                ) : !checkInStatus?.checked_out ? (
+                  <>
+                    <View style={styles.checkInActive}>
+                      <View style={styles.pulseDot} />
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.checkInActiveTitle}>Ziyaret devam ediyor</Text>
+                        <Text style={styles.checkInActiveMeta}>
+                          Saat {new Date(checkInStatus.check_in_at).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}'te giriş ·
+                          {' '}{Math.round(checkInStatus.distance_m || 0)}m mesafe
+                        </Text>
+                      </View>
+                    </View>
+                    <TouchableOpacity
+                      style={[styles.checkInBtn, { backgroundColor: colors.negative }]}
+                      onPress={handleCheckOut}
+                      disabled={checkInLoading}
+                      activeOpacity={0.85}
+                    >
+                      {checkInLoading
+                        ? <ActivityIndicator color="#fff" />
+                        : (
+                          <>
+                            <Text style={styles.checkInBtnIcon}>🏁</Text>
+                            <Text style={styles.checkInBtnText}>Ziyareti Bitir</Text>
+                          </>
+                        )}
+                    </TouchableOpacity>
+                  </>
+                ) : (
+                  <View style={styles.checkInDone}>
+                    <Text style={styles.checkInDoneIcon}>✅</Text>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.checkInDoneTitle}>Ziyaret tamamlandı</Text>
+                      <Text style={styles.checkInDoneMeta}>
+                        Süre: {checkInStatus.duration_text || checkInStatus.duration_minutes + ' dk'} ·
+                        {' '}{new Date(checkInStatus.check_in_at).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}
+                        {' → '}
+                        {new Date(checkInStatus.check_out_at).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}
+                      </Text>
+                    </View>
+                  </View>
+                )}
+              </View>
 
               {campaigns.length > 0 ? (
                 <>
@@ -495,4 +638,46 @@ const styles = StyleSheet.create({
   },
   quickActionIcon: { fontSize: 16 },
   quickActionText: { color: '#fff', fontWeight: '800', fontSize: 13 },
+
+  // GPS Check-in
+  checkInCard: {
+    backgroundColor: '#fff',
+    borderRadius: radius.md,
+    borderWidth: 1, borderColor: colors.border,
+    padding: 14,
+    marginTop: 14,
+    ...shadow.sm,
+  },
+  checkInHeader: { marginBottom: 12 },
+  checkInTitle: { fontSize: 14, fontWeight: '800', color: colors.text },
+  checkInSubtitle: { fontSize: 12, color: colors.textSecondary, marginTop: 3, lineHeight: 17 },
+  checkInBtn: {
+    height: 48,
+    backgroundColor: colors.positive,
+    borderRadius: radius.md,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    ...shadow.sm,
+  },
+  checkInBtnIcon: { fontSize: 18 },
+  checkInBtnText: { color: '#fff', fontWeight: '800', fontSize: 15 },
+  checkInActive: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    backgroundColor: colors.positiveBg,
+    borderRadius: radius.sm, padding: 12,
+    marginBottom: 12,
+  },
+  pulseDot: {
+    width: 12, height: 12, borderRadius: 6,
+    backgroundColor: colors.positive,
+  },
+  checkInActiveTitle: { fontSize: 13, fontWeight: '800', color: colors.positive },
+  checkInActiveMeta: { fontSize: 11, color: colors.text, marginTop: 2, fontWeight: '500' },
+  checkInDone: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    backgroundColor: colors.bg,
+    borderRadius: radius.sm, padding: 12,
+  },
+  checkInDoneIcon: { fontSize: 24 },
+  checkInDoneTitle: { fontSize: 13, fontWeight: '800', color: colors.text },
+  checkInDoneMeta: { fontSize: 11, color: colors.textSecondary, marginTop: 2, fontWeight: '500' },
 });

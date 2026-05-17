@@ -1,12 +1,31 @@
+import math
+from datetime import date, datetime, timedelta
+
 from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from sqlalchemy import func
-from datetime import date, timedelta
 
 from ..database import get_db
 from ..models import User, Customer, SalesVisit, Plan, DailyRoute, RouteStop, WeeklyAssignment
 from ..schemas import SalesVisitCreate, SalesVisitOut
 from ..auth import get_current_user, require_admin
+
+
+def _haversine_m(lat1, lon1, lat2, lon2):
+    """İki nokta arası mesafe (metre)."""
+    R = 6371000
+    dlat = math.radians(lat2 - lat1)
+    dlon = math.radians(lon2 - lon1)
+    a = (math.sin(dlat / 2) ** 2
+         + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon / 2) ** 2)
+    return 2 * R * math.asin(math.sqrt(a))
+
+
+class CheckInRequest(BaseModel):
+    customer_id: int
+    lat: float
+    lng: float
 
 # ── Sürdürülebilirlik sabitleri ──
 # Naif rotalama (rastgele/kronolojik) vs. optimize: tipik ~30% daha kısa
@@ -163,6 +182,146 @@ def get_summary(
         "this_week": weekly,
         "this_month": monthly,
         "daily_breakdown": daily_breakdown,
+    }
+
+
+@router.post("/check-in")
+def check_in(
+    body: CheckInRequest,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """GPS check-in: müşteriye geldim. Mesafe doğrulanır, ziyaret kaydı açılır."""
+    customer = db.query(Customer).filter(Customer.id == body.customer_id).first()
+    if not customer:
+        raise HTTPException(status_code=404, detail="Müşteri bulunamadı")
+
+    distance_m = _haversine_m(body.lat, body.lng, customer.x, customer.y)
+    today = date.today()
+    now = datetime.utcnow()
+
+    # Bugünkü mevcut ziyaret kaydını bul/oluştur
+    visit = db.query(SalesVisit).filter(
+        SalesVisit.user_id == user.id,
+        SalesVisit.customer_id == body.customer_id,
+        SalesVisit.visit_date == today,
+    ).first()
+
+    if visit:
+        # Zaten check-in yapılmışsa hata
+        if visit.check_in_at and not visit.check_out_at:
+            return {
+                "detail": "Zaten check-in yapılmış",
+                "check_in_at": visit.check_in_at.isoformat(),
+                "distance_m": round(visit.distance_from_customer_m or 0, 1),
+                "already_in": True,
+            }
+        visit.check_in_at = now
+        visit.check_in_lat = body.lat
+        visit.check_in_lng = body.lng
+        visit.distance_from_customer_m = distance_m
+        visit.check_out_at = None  # eski check-out'u temizle
+    else:
+        visit = SalesVisit(
+            user_id=user.id,
+            customer_id=body.customer_id,
+            visit_date=today,
+            visited=0,  # henüz tamamlanmadı, sadece check-in
+            sale_amount=0,
+            check_in_at=now,
+            check_in_lat=body.lat,
+            check_in_lng=body.lng,
+            distance_from_customer_m=distance_m,
+        )
+        db.add(visit)
+
+    db.commit()
+    db.refresh(visit)
+
+    return {
+        "detail": "Check-in başarılı",
+        "visit_id": visit.id,
+        "check_in_at": visit.check_in_at.isoformat(),
+        "distance_m": round(distance_m, 1),
+        "within_50m": distance_m <= 50,
+        "within_200m": distance_m <= 200,
+    }
+
+
+@router.post("/check-out/{customer_id}")
+def check_out(
+    customer_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Ziyaret tamamlandı: check-out timestamp + süre hesaplanır."""
+    today = date.today()
+    visit = db.query(SalesVisit).filter(
+        SalesVisit.user_id == user.id,
+        SalesVisit.customer_id == customer_id,
+        SalesVisit.visit_date == today,
+    ).first()
+    if not visit:
+        raise HTTPException(status_code=404, detail="Bugün için check-in kaydı yok")
+    if not visit.check_in_at:
+        raise HTTPException(status_code=400, detail="Önce check-in yapılmalı")
+    if visit.check_out_at:
+        return {
+            "detail": "Zaten check-out yapılmış",
+            "duration_minutes": round(
+                (visit.check_out_at - visit.check_in_at).total_seconds() / 60, 1
+            ),
+        }
+
+    visit.check_out_at = datetime.utcnow()
+    duration_sec = (visit.check_out_at - visit.check_in_at).total_seconds()
+    db.commit()
+
+    return {
+        "detail": "Check-out başarılı",
+        "visit_id": visit.id,
+        "duration_minutes": round(duration_sec / 60, 1),
+        "duration_text": _fmt_duration(duration_sec),
+    }
+
+
+def _fmt_duration(seconds):
+    minutes = int(seconds / 60)
+    if minutes < 60:
+        return f"{minutes} dakika"
+    h, m = divmod(minutes, 60)
+    return f"{h}sa {m}dk"
+
+
+@router.get("/check-in-status/{customer_id}")
+def check_in_status(
+    customer_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Bugün bu müşteriye check-in var mı?"""
+    today = date.today()
+    visit = db.query(SalesVisit).filter(
+        SalesVisit.user_id == user.id,
+        SalesVisit.customer_id == customer_id,
+        SalesVisit.visit_date == today,
+    ).first()
+    if not visit or not visit.check_in_at:
+        return {"checked_in": False}
+
+    duration_sec = None
+    if visit.check_out_at:
+        duration_sec = (visit.check_out_at - visit.check_in_at).total_seconds()
+
+    return {
+        "checked_in": True,
+        "checked_out": visit.check_out_at is not None,
+        "check_in_at": visit.check_in_at.isoformat(),
+        "check_out_at": visit.check_out_at.isoformat() if visit.check_out_at else None,
+        "distance_m": round(visit.distance_from_customer_m or 0, 1),
+        "duration_minutes": round(duration_sec / 60, 1) if duration_sec else None,
+        "duration_text": _fmt_duration(duration_sec) if duration_sec else None,
+        "visit_id": visit.id,
     }
 
 
