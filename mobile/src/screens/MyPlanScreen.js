@@ -10,6 +10,7 @@ import api from '../api';
 import { useAuth } from '../AuthContext';
 import { colors, radius, spacing, shadow, brandGradient } from '../theme';
 import { Card, Tag, EmptyState, SectionTitle } from '../components/ui';
+import HeaderActions from '../components/HeaderActions';
 // Platform-specific map (Metro otomatik seçer: .web.js / .native.js)
 import LeafletPlanMap from '../components/LeafletPlanMap';
 
@@ -170,27 +171,30 @@ export default function MyPlanScreen({ navigation }) {
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
       <StatusBar barStyle="light-content" />
       <LinearGradient colors={brandGradient} style={[styles.hero, { paddingTop: insets.top + 14 }]}>
-        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
           <View style={{ flex: 1 }}>
             <Text style={styles.heroTitle}>Bugünün Rotası</Text>
             <Text style={styles.heroSub}>
               {latestPlan ? latestPlan.name : 'Plan yok'} · Bölge {user?.cluster_index != null ? `#${user.cluster_index}` : '—'}
             </Text>
           </View>
+          <HeaderActions />
+        </View>
 
-          {/* View toggle */}
+        {/* View toggle */}
+        <View style={{ flexDirection: 'row', justifyContent: 'flex-end' }}>
           <View style={styles.toggle}>
             <TouchableOpacity
               onPress={() => setView('map')}
               style={[styles.toggleBtn, view === 'map' && styles.toggleBtnActive]}
             >
-              <Text style={[styles.toggleText, view === 'map' && styles.toggleTextActive]}>🗺️</Text>
+              <Text style={[styles.toggleText, view === 'map' && styles.toggleTextActive]}>🗺️ Harita</Text>
             </TouchableOpacity>
             <TouchableOpacity
               onPress={() => setView('list')}
               style={[styles.toggleBtn, view === 'list' && styles.toggleBtnActive]}
             >
-              <Text style={[styles.toggleText, view === 'list' && styles.toggleTextActive]}>☰</Text>
+              <Text style={[styles.toggleText, view === 'list' && styles.toggleTextActive]}>☰ Liste</Text>
             </TouchableOpacity>
           </View>
         </View>

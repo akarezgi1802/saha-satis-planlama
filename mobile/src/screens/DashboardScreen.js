@@ -11,6 +11,7 @@ import { useAuth } from '../AuthContext';
 import api from '../api';
 import { colors, radius, spacing, shadow, brandGradient, dashboardGradient, positiveGradient } from '../theme';
 import { Card, KpiTile, SectionTitle, EmptyState } from '../components/ui';
+import HeaderActions from '../components/HeaderActions';
 
 const DAY_NAMES_TR = ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'];
 
@@ -136,20 +137,16 @@ export default function DashboardScreen({ navigation }) {
       <StatusBar barStyle="light-content" />
       <LinearGradient colors={dashboardGradient} style={[styles.hero, { paddingTop: insets.top + 18 }]}>
         <View style={styles.heroRow}>
-          <View style={{ flex: 1 }}>
+          <TouchableOpacity onPress={() => navigation.navigate('Profile')} activeOpacity={0.85}>
+            <View style={styles.avatar}>
+              <Text style={styles.avatarText}>{user?.full_name?.charAt(0).toUpperCase() || '?'}</Text>
+            </View>
+          </TouchableOpacity>
+          <View style={{ flex: 1, marginLeft: 12 }}>
             <Text style={styles.heroGreet}>{greeting()}, {user?.full_name?.split(' ')[0] || ''}</Text>
             <Text style={styles.heroDate}>{todayLabel}</Text>
           </View>
-          <TouchableOpacity onPress={() => navigation.navigate('Notifications')} style={styles.bellWrap} activeOpacity={0.85}>
-            <Text style={styles.bell}>🔔</Text>
-            {(announcements?.length + campaigns?.length) ? (
-              <View style={styles.bellBadge}>
-                <Text style={styles.bellBadgeText}>
-                  {(announcements.length + campaigns.length) > 9 ? '9+' : (announcements.length + campaigns.length)}
-                </Text>
-              </View>
-            ) : null}
-          </TouchableOpacity>
+          <HeaderActions />
         </View>
       </LinearGradient>
 
@@ -434,23 +431,15 @@ function timeAgo(iso) {
 const styles = StyleSheet.create({
   hero: { paddingHorizontal: 18, paddingBottom: 56 },
   heroRow: { flexDirection: 'row', alignItems: 'center' },
-  heroGreet: { color: '#fff', fontSize: 22, fontWeight: '800', letterSpacing: -0.3 },
-  heroDate: { color: 'rgba(255,255,255,0.8)', fontSize: 12, marginTop: 4 },
-  bellWrap: {
+  heroGreet: { color: '#fff', fontSize: 18, fontWeight: '800', letterSpacing: -0.3 },
+  heroDate: { color: 'rgba(255,255,255,0.8)', fontSize: 11, marginTop: 2 },
+  avatar: {
     width: 42, height: 42, borderRadius: 12,
     backgroundColor: 'rgba(255,255,255,0.18)',
     alignItems: 'center', justifyContent: 'center',
+    borderWidth: 2, borderColor: 'rgba(255,255,255,0.25)',
   },
-  bell: { fontSize: 20 },
-  bellBadge: {
-    position: 'absolute', top: -4, right: -4,
-    backgroundColor: colors.negative,
-    minWidth: 18, height: 18, borderRadius: 9,
-    paddingHorizontal: 5,
-    alignItems: 'center', justifyContent: 'center',
-    borderWidth: 2, borderColor: colors.informative,
-  },
-  bellBadgeText: { color: '#fff', fontSize: 10, fontWeight: '800' },
+  avatarText: { color: '#fff', fontWeight: '800', fontSize: 18 },
 
   // Target card
   targetRow: { flexDirection: 'row', alignItems: 'center' },

@@ -10,6 +10,7 @@ import { useAuth } from '../AuthContext';
 import api from '../api';
 import { colors, radius, spacing, shadow, brandGradient } from '../theme';
 import { Tag, EmptyState, Card } from '../components/ui';
+import HeaderActions from '../components/HeaderActions';
 
 export default function CustomersScreen() {
   const insets = useSafeAreaInsets();
@@ -100,9 +101,14 @@ export default function CustomersScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
       <StatusBar barStyle="light-content" />
-      <LinearGradient colors={brandGradient} style={[styles.hero, { paddingTop: insets.top + 18 }]}>
-        <Text style={styles.heroTitle}>Müşteriler</Text>
-        <Text style={styles.heroSub}>{filtered.length} kayıt</Text>
+      <LinearGradient colors={brandGradient} style={[styles.hero, { paddingTop: insets.top + 14 }]}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.heroTitle}>Müşteriler</Text>
+            <Text style={styles.heroSub}>{filtered.length} kayıt</Text>
+          </View>
+          <HeaderActions />
+        </View>
 
         <View style={styles.searchBox}>
           <Text style={{ fontSize: 16 }}>🔎</Text>

@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import {
   View, Text, ScrollView, StyleSheet, TextInput, TouchableOpacity,
   StatusBar, ActivityIndicator, Alert, KeyboardAvoidingView, Platform,
+  Linking,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -26,6 +27,40 @@ export default function VisitDetailScreen({ route, navigation }) {
   const [aiLoading, setAiLoading] = useState(false);
   const [aiEnabled, setAiEnabled] = useState(null);
   const [campaigns, setCampaigns] = useState([]);
+
+  const openDirections = async () => {
+    if (!customer) return;
+    const lat = customer.x;
+    const lng = customer.y;
+    const label = encodeURIComponent(customer.name || 'Müşteri');
+
+    // Tercihen Google Maps. iOS'ta Apple Maps fallback yapılır.
+    let url;
+    if (Platform.OS === 'ios') {
+      // Google Maps yüklü mü kontrol et, yoksa Apple Maps
+      const googleScheme = `comgooglemaps://?daddr=${lat},${lng}&directionsmode=driving`;
+      const canOpenGoogle = await Linking.canOpenURL(googleScheme).catch(() => false);
+      url = canOpenGoogle
+        ? googleScheme
+        : `https://maps.apple.com/?daddr=${lat},${lng}&q=${label}`;
+    } else if (Platform.OS === 'android') {
+      // Geo intent — yüklü olan haritalama uygulaması açılır (Google Maps öncelikli)
+      url = `google.navigation:q=${lat},${lng}&mode=d`;
+      const canOpen = await Linking.canOpenURL(url).catch(() => false);
+      if (!canOpen) {
+        url = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=driving`;
+      }
+    } else {
+      // Web — yeni sekmede Google Maps
+      url = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=driving`;
+    }
+
+    try {
+      await Linking.openURL(url);
+    } catch (e) {
+      Alert.alert('Açılamadı', 'Harita uygulaması başlatılamadı. Konum: ' + lat + ', ' + lng);
+    }
+  };
 
   const prepareMeeting = async () => {
     setAiLoading(true);
@@ -167,6 +202,24 @@ export default function VisitDetailScreen({ route, navigation }) {
                 {customer?.notes ? (
                   <InfoRow icon="📝" label="Müşteri Notu" value={customer.notes} />
                 ) : null}
+
+                {/* Hızlı eylem butonları */}
+                <View style={styles.quickActions}>
+                  <TouchableOpacity style={styles.quickActionBtn} onPress={openDirections} activeOpacity={0.85}>
+                    <Text style={styles.quickActionIcon}>🧭</Text>
+                    <Text style={styles.quickActionText}>Yol Tarifi</Text>
+                  </TouchableOpacity>
+                  {customer?.phone ? (
+                    <TouchableOpacity
+                      style={styles.quickActionBtn}
+                      onPress={() => Linking.openURL(`tel:${customer.phone}`)}
+                      activeOpacity={0.85}
+                    >
+                      <Text style={styles.quickActionIcon}>📞</Text>
+                      <Text style={styles.quickActionText}>Ara</Text>
+                    </TouchableOpacity>
+                  ) : null}
+                </View>
               </Card>
 
               {campaigns.length > 0 ? (
@@ -428,4 +481,18 @@ const styles = StyleSheet.create({
   miniCampDiscount: { fontSize: 13, fontWeight: '800', marginTop: 4 },
   miniCampTitle: { fontSize: 12, fontWeight: '800', color: colors.text },
   miniCampDesc: { fontSize: 11, color: colors.textSecondary, marginTop: 4, lineHeight: 15 },
+  quickActions: {
+    flexDirection: 'row', gap: 10, marginTop: 14,
+    paddingTop: 14, borderTopWidth: 1, borderTopColor: colors.borderLight,
+  },
+  quickActionBtn: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    backgroundColor: colors.brand,
+    borderRadius: radius.md,
+    paddingVertical: 12, paddingHorizontal: 14,
+    gap: 8,
+    ...shadow.sm,
+  },
+  quickActionIcon: { fontSize: 16 },
+  quickActionText: { color: '#fff', fontWeight: '800', fontSize: 13 },
 });
