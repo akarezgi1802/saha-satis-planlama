@@ -26,6 +26,86 @@ function fmtCurrency(v) {
   return Number(v).toLocaleString("tr-TR");
 }
 
+function DemoDataButton() {
+  const [loading, setLoading] = useState(false);
+
+  const seedDemo = async () => {
+    if (!window.confirm(
+      "Demo veri yüklensin mi?\n\n" +
+      "Eklenir:\n• 3 demo sales rep (demo1/2/3@sahasatis.com / demo123)\n" +
+      "• Cluster atamaları (mevcut plana göre)\n" +
+      "• 1 haftalık satış kayıtları\n" +
+      "• 5 duyuru + 5 kampanya + 6 görev\n\n" +
+      "Mevcut müşteri/plan/admin hesabın etkilenmez."
+    )) return;
+
+    setLoading(true);
+    try {
+      const r = await api.post("/admin/seed-demo");
+      const reps = r.data.sales_reps.map(rep =>
+        `• ${rep.name} — ${rep.email} (Bölge ${rep.cluster_index + 1}, hedef ${(rep.monthly_target / 1000).toFixed(0)}K ₺)`
+      ).join("\n");
+      alert(
+        "✓ Demo veri yüklendi!\n\n" +
+        `${reps}\n\n` +
+        `İlk oluşturmada şifre: demo123\n\n` +
+        `Eklenenler: ${r.data.summary.sales_visits_added} ziyaret, ` +
+        `${(r.data.summary.total_sales_added_tl / 1000).toFixed(0)}K ₺ satış, ` +
+        `${r.data.summary.announcements_added} duyuru, ` +
+        `${r.data.summary.campaigns_added} kampanya, ` +
+        `${r.data.summary.tasks_added} görev`
+      );
+      window.location.reload();
+    } catch (err) {
+      alert("Hata: " + (err.response?.data?.detail || err.message));
+    }
+    setLoading(false);
+  };
+
+  const resetDemo = async () => {
+    if (!window.confirm(
+      "Demo veri silinsin mi?\n\n" +
+      "Silinir:\n• demo1/2/3@sahasatis.com hesapları\n" +
+      "• Onların tüm ziyaret kayıtları\n" +
+      "• Onlara atanmış görevler\n" +
+      "• Demo başlıklı duyuru ve kampanyalar\n\n" +
+      "Gerçek temsilciler, müşteriler, planlar etkilenmez."
+    )) return;
+    setLoading(true);
+    try {
+      const r = await api.post("/admin/reset-demo");
+      const d = r.data.deleted;
+      alert(`✓ Demo veri temizlendi: ${d.sales_reps} kullanıcı, ${d.sales_visits} ziyaret, ${d.tasks} görev, ${d.announcements} duyuru, ${d.campaigns} kampanya silindi`);
+      window.location.reload();
+    } catch (err) {
+      alert("Hata: " + (err.response?.data?.detail || err.message));
+    }
+    setLoading(false);
+  };
+
+  return (
+    <div style={{ display: "flex", gap: 6 }}>
+      <button
+        className="btn btn-emphasized btn-sm"
+        onClick={seedDemo}
+        disabled={loading}
+        title="3 sales rep + 1 haftalık satış + duyuru/kampanya/görev"
+      >
+        {loading ? "..." : "🎲 Demo Veri"}
+      </button>
+      <button
+        className="btn btn-default btn-sm"
+        onClick={resetDemo}
+        disabled={loading}
+        title="Demo veriyi sil (gerçek veri etkilenmez)"
+        style={{ color: "#ef4444", borderColor: "#fecaca" }}
+      >
+        🗑️
+      </button>
+    </div>
+  );
+}
+
 function CustomTooltip({ active, payload, label, suffix, valueKey }) {
   if (!active || !payload?.length) return null;
   return (
@@ -160,6 +240,7 @@ export default function Dashboard() {
       <div className="page-toolbar">
         <h1>Gösterge Paneli</h1>
         <div className="toolbar-actions">
+          <DemoDataButton />
           {completedPlans.length > 0 && (
             <select
               className="form-input"

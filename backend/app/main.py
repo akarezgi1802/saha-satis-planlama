@@ -10,7 +10,7 @@ from sqlalchemy import text
 
 from .database import engine, Base, SessionLocal
 from .models import Plan
-from .routers import auth, customers, sales_reps, plans, settings, performance, announcements, ai, campaigns, install, routing, tasks
+from .routers import auth, customers, sales_reps, plans, settings, performance, announcements, ai, campaigns, install, routing, tasks, admin_demo
 
 Base.metadata.create_all(bind=engine)
 
@@ -80,6 +80,7 @@ app.include_router(campaigns.router)
 app.include_router(install.router)
 app.include_router(routing.router)
 app.include_router(tasks.router)
+app.include_router(admin_demo.router)
 
 
 # ── Frontend static dosyaları (deploy modunda) ──
