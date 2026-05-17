@@ -17,6 +17,8 @@ from fastapi.responses import HTMLResponse
 router = APIRouter(tags=["install"])
 
 DEFAULT_EAS_BUILD_URL = "https://expo.dev/accounts/tugceeeeeeee/projects/saha-satis-mobile/builds"
+# Mobile web sürümü URL'i (Render Static Site'da deploy edilen Expo Web build'i)
+DEFAULT_WEB_URL = "https://saha-satis-mobile-web.onrender.com"
 
 
 @router.get("/install", response_class=HTMLResponse)
@@ -27,25 +29,30 @@ def install_page(request: Request):
 
     eas_build_url = os.getenv("EAS_BUILD_URL", DEFAULT_EAS_BUILD_URL).strip()
     eas_apk_url = os.getenv("EAS_APK_URL", "").strip()
+    web_url = os.getenv("MOBILE_WEB_URL", DEFAULT_WEB_URL).strip()
 
     # Android için direkt APK varsa onu kullan, yoksa build sayfasına gönder
     android_link = eas_apk_url or eas_build_url
-    expo_go_play_store = "https://play.google.com/store/apps/details?id=host.exp.exponent"
-    expo_go_app_store = "https://apps.apple.com/app/expo-go/id982107779"
 
     # Cihaza özel ana CTA
     if is_android:
-        primary_btn = f'<a class="btn btn-primary" href="{android_link}">📲 Android APK İndir</a>'
-        primary_note = "Tıkla, APK telefona iner. Kurulumda Android'in 'bilinmeyen kaynak' uyarısını onayla."
+        primary_btn = (
+            f'<a class="btn btn-primary" href="{android_link}">📲 Android APK İndir (önerilen)</a>'
+            f'<a class="btn btn-secondary" href="{web_url}">🌐 Veya tarayıcıda aç</a>'
+        )
+        primary_note = "APK için: tıkla, telefona iner, Android'in 'bilinmeyen kaynak' uyarısını onayla. Hızlı bakmak için tarayıcı versiyonu da çalışır."
     elif is_ios:
-        primary_btn = f'<a class="btn btn-primary" href="{expo_go_app_store}">📱 Expo Go İndir (App Store)</a>'
-        primary_note = "iPhone için: önce Expo Go'yu indir, sonra demo QR kodumuzu Expo Go'da okut."
+        primary_btn = (
+            f'<a class="btn btn-primary" href="{web_url}">🌐 Safari\'de Aç (önerilen)</a>'
+            f'<a class="btn btn-secondary" href="{web_url}">📲 Sonra "Ana Ekrana Ekle"</a>'
+        )
+        primary_note = "iPhone için: tıkla → Safari'de açılır → paylaş menüsünden 'Ana Ekrana Ekle' ile bir simge oluştur. App gibi çalışır, kurulum gerekmez."
     else:
         primary_btn = (
-            f'<a class="btn btn-primary" href="{android_link}">📲 Android APK İndir</a>'
-            f'<a class="btn btn-secondary" href="{expo_go_app_store}">🍎 iPhone — Expo Go</a>'
+            f'<a class="btn btn-primary" href="{android_link}">📲 Android APK</a>'
+            f'<a class="btn btn-secondary" href="{web_url}">🌐 Tarayıcıda Aç</a>'
         )
-        primary_note = "Telefon türüne göre yukarıdaki seçeneklerden birini tıkla."
+        primary_note = "Android için APK'yı indir. iPhone veya bilgisayar için tarayıcı versiyonunu kullan."
 
     # QR — Build URL'sinin QR kodu (Google Charts API ile, server-side rendering yok)
     import urllib.parse
@@ -236,14 +243,15 @@ def install_page(request: Request):
     <div class="card">
       <div class="card-header">
         <div class="card-icon">🍎</div>
-        <div class="card-title">iPhone — Kurulum Adımları</div>
+        <div class="card-title">iPhone — Web Sürümü (kurulum yok)</div>
       </div>
       <ol class="steps">
-        <li>App Store'dan <strong>Expo Go</strong> uygulamasını indir</li>
-        <li>Demoyu sunan kişiden Expo dev sunucu QR'ını iste</li>
-        <li>iPhone kamerasıyla QR'ı okut → Expo Go'da açılır</li>
+        <li>Yukarıdaki "Safari'de Aç" butonuna dokun</li>
+        <li>Saha Satış arayüzü Safari'de açılır — direkt kullanabilirsin</li>
+        <li>App gibi çalışmasını istersen: paylaş menüsü (□↑) → "Ana Ekrana Ekle"</li>
+        <li>Bir simge oluşur, dokununca tam ekran açılır</li>
       </ol>
-      <p class="note">iOS için bağımsız app TestFlight gerektirir (Apple Developer hesabı).</p>
+      <p class="note">Harita ve QR tarama tarayıcıda yok — kalan tüm özellikler çalışır.</p>
     </div>
 
     <p class="footer">
