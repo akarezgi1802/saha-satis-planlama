@@ -9,7 +9,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle } from 'react-native-svg';
 import { useAuth } from '../AuthContext';
 import api from '../api';
-import { colors, radius, spacing, shadow, brandGradient, dashboardGradient, positiveGradient } from '../theme';
+import { colors, radius, spacing, shadow, brandGradient, brandGradient, positiveGradient } from '../theme';
 import { Card, KpiTile, SectionTitle, EmptyState } from '../components/ui';
 import HeaderActions from '../components/HeaderActions';
 
@@ -135,7 +135,7 @@ export default function DashboardScreen({ navigation }) {
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
       <StatusBar barStyle="light-content" />
-      <LinearGradient colors={dashboardGradient} style={[styles.hero, { paddingTop: insets.top + 18 }]}>
+      <LinearGradient colors={brandGradient} style={[styles.hero, { paddingTop: insets.top + 18 }]}>
         <View style={styles.heroRow}>
           <TouchableOpacity onPress={() => navigation.navigate('Profile')} activeOpacity={0.85}>
             <View style={styles.avatar}>

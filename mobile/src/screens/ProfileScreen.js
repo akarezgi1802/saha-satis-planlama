@@ -42,7 +42,7 @@ export default function ProfileScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
       <StatusBar barStyle="light-content" />
-      <LinearGradient colors={shellGradient} style={[styles.hero, { paddingTop: insets.top + 24 }]}>
+      <LinearGradient colors={brandGradient} style={[styles.hero, { paddingTop: insets.top + 24 }]}>
         <View style={styles.avatarBig}>
           <Text style={styles.avatarBigText}>
             {user?.full_name?.charAt(0).toUpperCase() || '?'}
