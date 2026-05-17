@@ -4,7 +4,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useAuth } from '../AuthContext';
 import api, { API_BASE_URL } from '../api';
 import { colors, radius, spacing, shadow, brandGradient, shellGradient } from '../theme';
@@ -13,6 +13,7 @@ import { Card } from '../components/ui';
 export default function ProfileScreen() {
   const { user, logout } = useAuth();
   const insets = useSafeAreaInsets();
+  const navigation = useNavigation();
   const [sustainability, setSustainability] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -42,7 +43,20 @@ export default function ProfileScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
       <StatusBar barStyle="light-content" />
-      <LinearGradient colors={brandGradient} style={[styles.hero, { paddingTop: insets.top + 24 }]}>
+      <LinearGradient colors={brandGradient} style={[styles.hero, { paddingTop: insets.top + 10 }]}>
+        {/* Geri butonu */}
+        <View style={styles.topBar}>
+          <TouchableOpacity
+            onPress={() => navigation.goBack()}
+            style={styles.backBtn}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.backIcon}>‹</Text>
+          </TouchableOpacity>
+          <Text style={styles.topTitle}>Profil</Text>
+          <View style={{ width: 40 }} />
+        </View>
+
         <View style={styles.avatarBig}>
           <Text style={styles.avatarBigText}>
             {user?.full_name?.charAt(0).toUpperCase() || '?'}
@@ -178,6 +192,17 @@ function Row({ label, value, last }) {
 
 const styles = StyleSheet.create({
   hero: { alignItems: 'center', paddingBottom: 22, paddingHorizontal: 18 },
+  topBar: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    width: '100%', marginBottom: 16,
+  },
+  backBtn: {
+    width: 40, height: 40, borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.18)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  backIcon: { color: '#fff', fontSize: 26, fontWeight: '700', marginTop: -4 },
+  topTitle: { color: '#fff', fontSize: 16, fontWeight: '800' },
   avatarBig: {
     width: 82, height: 82, borderRadius: 41,
     backgroundColor: 'rgba(255,255,255,0.18)',

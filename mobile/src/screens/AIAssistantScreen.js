@@ -5,7 +5,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import api from '../api';
 import { useAuth } from '../AuthContext';
 import { colors, radius, spacing, shadow, brandGradient, positiveGradient } from '../theme';
@@ -21,6 +21,7 @@ const QUICK_ACTIONS = [
 export default function AIAssistantScreen() {
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
+  const navigation = useNavigation();
   const [aiStatus, setAiStatus] = useState(null);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
@@ -167,9 +168,12 @@ export default function AIAssistantScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
       <StatusBar barStyle="light-content" />
-      <LinearGradient colors={brandGradient} style={[styles.hero, { paddingTop: insets.top + 14 }]}>
+      <LinearGradient colors={brandGradient} style={[styles.hero, { paddingTop: insets.top + 10 }]}>
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-          <View style={styles.botBig}>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn} activeOpacity={0.85}>
+            <Text style={styles.backIcon}>‹</Text>
+          </TouchableOpacity>
+          <View style={[styles.botBig, { marginLeft: 8 }]}>
             <Text style={{ fontSize: 24 }}>🤖</Text>
           </View>
           <View style={{ flex: 1, marginLeft: 12 }}>
@@ -238,6 +242,12 @@ export default function AIAssistantScreen() {
 
 const styles = StyleSheet.create({
   hero: { paddingHorizontal: 14, paddingBottom: 14 },
+  backBtn: {
+    width: 40, height: 40, borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.18)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  backIcon: { color: '#fff', fontSize: 26, fontWeight: '700', marginTop: -4 },
   heroTitle: { color: '#fff', fontSize: 18, fontWeight: '800' },
   heroSub: { color: 'rgba(255,255,255,0.8)', fontSize: 11, fontWeight: '600', marginTop: 2 },
   botBig: {

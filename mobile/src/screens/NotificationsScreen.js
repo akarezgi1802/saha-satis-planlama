@@ -4,7 +4,7 @@ import {
   AppState, TouchableOpacity,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useFocusEffect, useRoute } from '@react-navigation/native';
+import { useFocusEffect, useRoute, useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import api from '../api';
@@ -71,6 +71,7 @@ function fmtDateOnly(iso) {
 export default function NotificationsScreen() {
   const insets = useSafeAreaInsets();
   const routeParam = useRoute();
+  const navigation = useNavigation();
   const [tab, setTab] = useState(routeParam.params?.tab === 'campaigns' ? 'campaigns' : 'announcements');
   const [announcements, setAnnouncements] = useState([]);
   const [campaigns, setCampaigns] = useState([]);
@@ -212,9 +213,16 @@ export default function NotificationsScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
       <StatusBar barStyle="light-content" />
-      <LinearGradient colors={brandGradient} style={[styles.hero, { paddingTop: insets.top + 14 }]}>
-        <Text style={styles.heroTitle}>Bildirimler</Text>
-        <Text style={styles.heroSub}>Her 15 saniyede bir güncellenir</Text>
+      <LinearGradient colors={brandGradient} style={[styles.hero, { paddingTop: insets.top + 10 }]}>
+        <View style={styles.topBar}>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn} activeOpacity={0.85}>
+            <Text style={styles.backIcon}>‹</Text>
+          </TouchableOpacity>
+          <View style={{ flex: 1, marginLeft: 8 }}>
+            <Text style={styles.heroTitle}>Bildirimler</Text>
+            <Text style={styles.heroSub}>Her 15 saniyede bir güncellenir</Text>
+          </View>
+        </View>
 
         <View style={styles.segments}>
           <SegButton
@@ -303,6 +311,13 @@ function SegButton({ label, count, badge, active, onPress }) {
 
 const styles = StyleSheet.create({
   hero: { paddingHorizontal: 16, paddingBottom: 16 },
+  topBar: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
+  backBtn: {
+    width: 40, height: 40, borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.18)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  backIcon: { color: '#fff', fontSize: 26, fontWeight: '700', marginTop: -4 },
   heroTitle: { color: '#fff', fontSize: 22, fontWeight: '800' },
   heroSub: { color: 'rgba(255,255,255,0.8)', fontSize: 11, marginTop: 4, fontWeight: '600' },
   segments: {
