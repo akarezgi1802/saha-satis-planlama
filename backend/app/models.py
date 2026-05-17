@@ -181,6 +181,26 @@ class Announcement(Base):
     author = relationship("User")
 
 
+class Task(Base):
+    __tablename__ = "tasks"
+
+    id = Column(Integer, primary_key=True, index=True)
+    title = Column(String(300), nullable=False)
+    description = Column(Text, nullable=True)
+    assigned_to_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    assigned_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)  # admin
+    customer_id = Column(Integer, ForeignKey("customers.id"), nullable=True)  # opsiyonel müşteri ilişkisi
+    priority = Column(String(20), nullable=False, default="normal")  # low, normal, high, urgent
+    status = Column(String(20), nullable=False, default="open")  # open, in_progress, done, cancelled
+    due_date = Column(Date, nullable=True)
+    completed_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    assigned_to = relationship("User", foreign_keys=[assigned_to_id])
+    assigned_by = relationship("User", foreign_keys=[assigned_by_id])
+    customer = relationship("Customer")
+
+
 class Campaign(Base):
     __tablename__ = "campaigns"
 
