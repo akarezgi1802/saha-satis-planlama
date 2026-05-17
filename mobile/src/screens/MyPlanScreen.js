@@ -10,6 +10,8 @@ import api from '../api';
 import { useAuth } from '../AuthContext';
 import { colors, radius, spacing, shadow, brandGradient } from '../theme';
 import { Card, Tag, EmptyState, SectionTitle } from '../components/ui';
+// Platform-specific map (Metro otomatik seçer: .web.js / .native.js)
+import LeafletPlanMap from '../components/LeafletPlanMap';
 
 const IS_WEB = Platform.OS === 'web';
 // react-native-maps web'de yok — sadece native'de import et
@@ -46,8 +48,8 @@ export default function MyPlanScreen({ navigation }) {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
   const [selectedDay, setSelectedDay] = useState(todayKey());
-  // Web'de harita yok, varsayılan liste
-  const [view, setView] = useState(IS_WEB ? 'list' : 'map'); // 'map' | 'list'
+  // Web'de de Leaflet ile harita var — default map
+  const [view, setView] = useState('map'); // 'map' | 'list'
   const [visits, setVisits] = useState([]);
   const [liveRoute, setLiveRoute] = useState(null);
   const [liveLoading, setLiveLoading] = useState(false);
@@ -176,23 +178,21 @@ export default function MyPlanScreen({ navigation }) {
             </Text>
           </View>
 
-          {/* View toggle — sadece native'de göster */}
-          {!IS_WEB ? (
-            <View style={styles.toggle}>
-              <TouchableOpacity
-                onPress={() => setView('map')}
-                style={[styles.toggleBtn, view === 'map' && styles.toggleBtnActive]}
-              >
-                <Text style={[styles.toggleText, view === 'map' && styles.toggleTextActive]}>🗺️</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={() => setView('list')}
-                style={[styles.toggleBtn, view === 'list' && styles.toggleBtnActive]}
-              >
-                <Text style={[styles.toggleText, view === 'list' && styles.toggleTextActive]}>☰</Text>
-              </TouchableOpacity>
-            </View>
-          ) : null}
+          {/* View toggle */}
+          <View style={styles.toggle}>
+            <TouchableOpacity
+              onPress={() => setView('map')}
+              style={[styles.toggleBtn, view === 'map' && styles.toggleBtnActive]}
+            >
+              <Text style={[styles.toggleText, view === 'map' && styles.toggleTextActive]}>🗺️</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => setView('list')}
+              style={[styles.toggleBtn, view === 'list' && styles.toggleBtnActive]}
+            >
+              <Text style={[styles.toggleText, view === 'list' && styles.toggleTextActive]}>☰</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </LinearGradient>
 
@@ -234,26 +234,48 @@ export default function MyPlanScreen({ navigation }) {
           </Card>
         </View>
       ) : view === 'map' ? (
-        <MapPlanView
-          stops={todayStops}
-          depot={depot}
-          region={region}
-          polylineCoords={polylineCoords}
-          isVisited={isVisited}
-          progressPercent={progressPercent}
-          visitedCount={visitedCount}
-          totalDistance={liveRoute?.distance_km || route.total_distance}
-          totalTime={route.total_time_minutes}
-          liveRoute={liveRoute}
-          liveLoading={liveLoading}
-          onRefreshLive={loadLiveRoute}
-          onStopPress={(stop) => navigation.navigate('VisitDetail', {
-            customerId: stop.customer_id,
-            customerName: stop.customer_name,
-            visitOrder: stop.visit_order,
-            estimatedArrival: stop.estimated_arrival_minutes,
-          })}
-        />
+        IS_WEB ? (
+          <LeafletPlanMap
+            stops={todayStops}
+            depot={depot}
+            polylineCoords={polylineCoords}
+            isVisited={isVisited}
+            progressPercent={progressPercent}
+            visitedCount={visitedCount}
+            totalDistance={liveRoute?.distance_km || route.total_distance}
+            totalTime={route.total_time_minutes}
+            liveRoute={liveRoute}
+            liveLoading={liveLoading}
+            onRefreshLive={loadLiveRoute}
+            onStopPress={(stop) => navigation.navigate('VisitDetail', {
+              customerId: stop.customer_id,
+              customerName: stop.customer_name,
+              visitOrder: stop.visit_order,
+              estimatedArrival: stop.estimated_arrival_minutes,
+            })}
+          />
+        ) : (
+          <MapPlanView
+            stops={todayStops}
+            depot={depot}
+            region={region}
+            polylineCoords={polylineCoords}
+            isVisited={isVisited}
+            progressPercent={progressPercent}
+            visitedCount={visitedCount}
+            totalDistance={liveRoute?.distance_km || route.total_distance}
+            totalTime={route.total_time_minutes}
+            liveRoute={liveRoute}
+            liveLoading={liveLoading}
+            onRefreshLive={loadLiveRoute}
+            onStopPress={(stop) => navigation.navigate('VisitDetail', {
+              customerId: stop.customer_id,
+              customerName: stop.customer_name,
+              visitOrder: stop.visit_order,
+              estimatedArrival: stop.estimated_arrival_minutes,
+            })}
+          />
+        )
       ) : (
         <ListPlanView
           stops={todayStops}
