@@ -80,13 +80,13 @@ def install_page(request: Request):
       padding: 32px 20px 48px;
     }}
     .logo {{
-      width: 80px; height: 80px; margin: 24px auto 18px;
+      width: 96px; height: 96px; margin: 24px auto 18px;
       background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
-      border-radius: 22px;
+      border-radius: 26px;
       display: flex; align-items: center; justify-content: center;
-      font-weight: 900; font-size: 30px; letter-spacing: -1px;
       box-shadow: 0 12px 40px rgba(99, 102, 241, 0.5);
     }}
+    .logo svg {{ width: 64px; height: 64px; }}
     h1 {{
       text-align: center; font-size: 28px; font-weight: 800;
       letter-spacing: -0.5px; margin-bottom: 6px;
@@ -194,9 +194,30 @@ def install_page(request: Request):
 </head>
 <body>
   <div class="wrap">
-    <div class="logo">SS</div>
+    <div class="logo">
+      <svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="routeGrad" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="#fbbf24"/>
+            <stop offset="1" stop-color="#fff"/>
+          </linearGradient>
+        </defs>
+        <!-- Harita ızgarası -->
+        <path d="M 8 24 H 56 M 8 40 H 56 M 24 8 V 56 M 40 8 V 56"
+              stroke="rgba(255,255,255,0.18)" stroke-width="0.8" fill="none"/>
+        <!-- Yol -->
+        <path d="M 14 50 Q 22 38, 30 36 T 44 22 T 50 14"
+              stroke="url(#routeGrad)" stroke-width="4" stroke-linecap="round" fill="none"/>
+        <!-- Başlangıç pin -->
+        <circle cx="14" cy="50" r="5" fill="#fff"/>
+        <circle cx="14" cy="50" r="2.5" fill="#6366f1"/>
+        <!-- Bitiş pin -->
+        <circle cx="50" cy="14" r="5" fill="#fff"/>
+        <circle cx="50" cy="14" r="2.5" fill="#10b981"/>
+      </svg>
+    </div>
     <h1>Saha Satış</h1>
-    <p class="subtitle">Mobil Demo Uygulaması</p>
+    <p class="subtitle">Trafik bazlı akıllı rotalama</p>
 
     <div style="text-align:center; margin-bottom: 24px;">
       <span class="pill">● Canlı backend'e bağlı</span>

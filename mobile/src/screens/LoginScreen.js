@@ -3,13 +3,42 @@ import {
   View, Text, TextInput, StyleSheet, KeyboardAvoidingView, Platform,
   TouchableOpacity, ScrollView, StatusBar,
 } from 'react-native';
-
-const IS_WEB = Platform.OS === 'web';
 import { LinearGradient } from 'expo-linear-gradient';
+import Svg, { Path, Circle, Defs, LinearGradient as SvgLinearGradient, Stop } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../AuthContext';
 import { colors, radius, spacing, shadow, shellGradient } from '../theme';
 import { GradientButton } from '../components/ui';
+
+const IS_WEB = Platform.OS === 'web';
+
+// Marka logosu: harita üstünde route + iki lokasyon pini
+function BrandLogo({ size = 50 }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 64 64">
+      <Defs>
+        <SvgLinearGradient id="routeGrad" x1="0" y1="0" x2="1" y2="1">
+          <Stop offset="0" stopColor="#fbbf24" />
+          <Stop offset="1" stopColor="#fff" />
+        </SvgLinearGradient>
+      </Defs>
+      {/* Yumuşak harita ızgarası (dekoratif) */}
+      <Path d="M 8 24 H 56 M 8 40 H 56 M 24 8 V 56 M 40 8 V 56"
+        stroke="rgba(255,255,255,0.18)" strokeWidth="0.8" />
+      {/* Yol — eğri çizgi başlangıç pin'inden bitiş pin'ine */}
+      <Path
+        d="M 14 50 Q 22 38, 30 36 T 44 22 T 50 14"
+        stroke="url(#routeGrad)" strokeWidth="4" strokeLinecap="round" fill="none"
+      />
+      {/* Başlangıç pin (sol alt) */}
+      <Circle cx="14" cy="50" r="5" fill="#fff" />
+      <Circle cx="14" cy="50" r="2.5" fill="#6366f1" />
+      {/* Bitiş pin (sağ üst) */}
+      <Circle cx="50" cy="14" r="5" fill="#fff" />
+      <Circle cx="50" cy="14" r="2.5" fill="#10b981" />
+    </Svg>
+  );
+}
 
 export default function LoginScreen({ navigation }) {
   const { login } = useAuth();
@@ -47,11 +76,15 @@ export default function LoginScreen({ navigation }) {
           keyboardShouldPersistTaps="handled"
         >
           <View style={styles.brandWrap}>
-            <LinearGradient colors={['#6366f1', '#8b5cf6']} style={styles.logoIcon}>
-              <Text style={styles.logoIconText}>SS</Text>
+            <LinearGradient
+              colors={['#6366f1', '#8b5cf6']}
+              start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+              style={styles.logoIcon}
+            >
+              <BrandLogo size={50} />
             </LinearGradient>
             <Text style={styles.brandTitle}>Saha Satış</Text>
-            <Text style={styles.brandSubtitle}>Karar Destek Sistemi</Text>
+            <Text style={styles.brandSubtitle}>Trafik bazlı akıllı rotalama</Text>
           </View>
 
           <View style={styles.card}>
@@ -127,12 +160,11 @@ const styles = StyleSheet.create({
   scroll: { flexGrow: 1, paddingHorizontal: 20 },
   brandWrap: { alignItems: 'center', marginBottom: 32 },
   logoIcon: {
-    width: 70, height: 70, borderRadius: 20,
+    width: 82, height: 82, borderRadius: 22,
     alignItems: 'center', justifyContent: 'center',
-    marginBottom: 12,
+    marginBottom: 14,
     ...shadow.lg,
   },
-  logoIconText: { color: '#fff', fontWeight: '900', fontSize: 24, letterSpacing: -1 },
   brandTitle: { color: '#fff', fontSize: 28, fontWeight: '800', letterSpacing: -0.5 },
   brandSubtitle: { color: 'rgba(255,255,255,0.7)', fontSize: 13, marginTop: 4 },
   card: {
