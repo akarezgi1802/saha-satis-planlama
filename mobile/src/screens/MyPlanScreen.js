@@ -125,12 +125,19 @@ export default function MyPlanScreen({ navigation }) {
     return visits.some(v => v.customer_id === customerId && v.visit_date === today && v.visited);
   }, [visits]);
 
-  // Sıradaki tamamlanmamış stop = aktif adım
+  // Bir kayıt var mı (atlandı veya tamamlandı) — activeStop hesabı için
+  const isHandled = useCallback((customerId) => {
+    const today = new Date().toISOString().slice(0, 10);
+    return visits.some(v => v.customer_id === customerId && v.visit_date === today);
+  }, [visits]);
+
+  // Sıradaki HENÜZ DOKUNULMAMIŞ stop = aktif adım
+  // (atlandı/tamamlandı fark etmez, activeStop bir sonrakine geçer)
   const activeStop = useMemo(() => {
     const route = planData?.routes?.find(r => r.day_of_week === selectedDay);
     if (!route?.stops) return null;
-    return route.stops.find(s => !isVisited(s.customer_id)) || null;
-  }, [planData, selectedDay, isVisited]);
+    return route.stops.find(s => !isHandled(s.customer_id)) || null;
+  }, [planData, selectedDay, isHandled]);
 
   const openDirToActive = async (stop) => {
     if (!stop) return;

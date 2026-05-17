@@ -5,6 +5,7 @@ import {
   Linking, Image,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import Svg, { Rect, Text as SvgText, Line } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import api from '../api';
@@ -34,7 +35,10 @@ export default function VisitDetailScreen({ route, navigation }) {
   const [aiSummary, setAiSummary] = useState('');
   const [aiLoading, setAiLoading] = useState(false);
   const [aiEnabled, setAiEnabled] = useState(null);
+  const [aiChart, setAiChart] = useState(null);
+  const [aiCustStats, setAiCustStats] = useState(null);
   const [campaigns, setCampaigns] = useState([]);
+  const [skipLoading, setSkipLoading] = useState(false);
 
   // GPS Check-in state
   const [checkInStatus, setCheckInStatus] = useState(null);
@@ -85,11 +89,56 @@ export default function VisitDetailScreen({ route, navigation }) {
       setAiTips(r.data.tips);
       setAiSummary(r.data.summary);
       setAiEnabled(r.data.ai_enabled);
+      setAiChart(r.data.weekly_chart);
+      setAiCustStats(r.data.customer_stats);
     } catch (e) {
       Alert.alert('AI Hatası', e.response?.data?.detail || 'AI çağrısı başarısız');
     } finally {
       setAiLoading(false);
     }
+  };
+
+  const skipVisit = async (reason) => {
+    setSkipLoading(true);
+    try {
+      await api.post('/performance/visits', {
+        customer_id: customerId,
+        visit_date: new Date().toISOString().slice(0, 10),
+        sale_amount: 0,
+        visited: 0,
+        notes: `⚠️ Atlandı: ${reason}`,
+      });
+      Alert.alert(
+        'Müşteri atlandı',
+        `Sebep: ${reason}\n\nPlanım ekranında bir sonraki müşteriye otomatik geçtin.`,
+        [{ text: 'Tamam', onPress: () => navigation.goBack() }]
+      );
+    } catch (e) {
+      Alert.alert('Hata', e.response?.data?.detail || 'Atlanamadı');
+    } finally {
+      setSkipLoading(false);
+    }
+  };
+
+  const onSkipPress = () => {
+    const reasons = ['Kapalı', 'Müşteri yok', 'Ulaşılamadı', 'Sorun var'];
+    if (IS_WEB) {
+      const choice = typeof window !== 'undefined' && window.prompt(
+        'Atlama sebebi seç (1-4):\n1. Kapalı\n2. Müşteri yok\n3. Ulaşılamadı\n4. Sorun var',
+        '1'
+      );
+      const idx = parseInt(choice, 10);
+      if (idx >= 1 && idx <= 4) skipVisit(reasons[idx - 1]);
+      return;
+    }
+    Alert.alert(
+      '🚫 Bu müşteriyi atla',
+      'Sebebini seç — bu müşteri "atlandı" olarak kaydedilir, plandaki bir sonrakine geçersin:',
+      [
+        { text: 'İptal', style: 'cancel' },
+        ...reasons.map(r => ({ text: r, onPress: () => skipVisit(r) })),
+      ]
+    );
   };
 
   const load = useCallback(async () => {
@@ -551,6 +600,32 @@ export default function VisitDetailScreen({ route, navigation }) {
                       <Text style={styles.aiSummaryText}>{aiSummary}</Text>
                     </View>
                   ) : null}
+
+                  {/* Müşteri istatistikleri + 12 haftalık grafik */}
+                  {aiCustStats ? (
+                    <View style={styles.aiStatsRow}>
+                      <View style={styles.aiStatTile}>
+                        <Text style={styles.aiStatVal}>
+                          {(aiCustStats.total_sales_12w / 1000).toFixed(0)}K
+                        </Text>
+                        <Text style={styles.aiStatLabel}>12 hafta ₺</Text>
+                      </View>
+                      <View style={styles.aiStatTile}>
+                        <Text style={styles.aiStatVal}>{aiCustStats.visit_count_12w}</Text>
+                        <Text style={styles.aiStatLabel}>ziyaret</Text>
+                      </View>
+                      <View style={styles.aiStatTile}>
+                        <Text style={styles.aiStatVal}>
+                          {(aiCustStats.avg_sale / 1000).toFixed(1)}K
+                        </Text>
+                        <Text style={styles.aiStatLabel}>ort. satış</Text>
+                      </View>
+                    </View>
+                  ) : null}
+
+                  {aiChart?.length ? <WeeklyChart data={aiChart} /> : null}
+
+                  {/* Tips */}
                   {aiTips.map((tip, i) => (
                     <View key={i} style={styles.aiTipRow}>
                       <View style={styles.aiTipBubble}><Text style={styles.aiTipBubbleText}>{i + 1}</Text></View>
@@ -615,6 +690,17 @@ export default function VisitDetailScreen({ route, navigation }) {
                   <Text style={styles.secondaryBtnText}>Sadece Not Kaydet (Ziyaret etmedim)</Text>
                 </TouchableOpacity>
               ) : null}
+
+              {/* Atla butonu — müşteriye ulaşılamıyor / kapalı vs */}
+              <TouchableOpacity
+                onPress={onSkipPress}
+                style={styles.skipBtn}
+                disabled={skipLoading}
+              >
+                {skipLoading
+                  ? <ActivityIndicator size="small" color={colors.negative} />
+                  : <Text style={styles.skipBtnText}>🚫 Ulaşılamadı / Atla</Text>}
+              </TouchableOpacity>
             </>
           )}
         </ScrollView>
@@ -635,6 +721,55 @@ function InfoCell({ label, value }) {
     <View style={styles.infoCell}>
       <Text style={styles.infoLabel}>{label}</Text>
       <Text style={styles.infoValue}>{value}</Text>
+    </View>
+  );
+}
+
+function WeeklyChart({ data }) {
+  const W = 280;
+  const H = 90;
+  const padL = 4;
+  const padR = 4;
+  const barCount = data.length;
+  const barW = (W - padL - padR) / barCount - 2;
+  const max = Math.max(1, ...data.map(d => d.sales));
+
+  return (
+    <View style={styles.chartBox}>
+      <Text style={styles.chartTitle}>📊 Son 12 hafta satış</Text>
+      <Svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`}>
+        {/* Baseline */}
+        <Line x1="0" y1={H - 14} x2={W} y2={H - 14} stroke={colors.border} strokeWidth="0.5" />
+        {data.map((d, i) => {
+          const barH = max > 0 ? Math.max(2, (d.sales / max) * (H - 26)) : 2;
+          const x = padL + i * (barW + 2);
+          const y = H - 14 - barH;
+          const isLast = i === data.length - 1;
+          return (
+            <React.Fragment key={i}>
+              <Rect
+                x={x} y={y}
+                width={barW} height={barH}
+                fill={isLast ? colors.brand : colors.brandPurple}
+                opacity={d.sales > 0 ? 1 : 0.2}
+                rx="2"
+              />
+              {(i % 2 === 0 || isLast) ? (
+                <SvgText
+                  x={x + barW / 2} y={H - 2}
+                  fontSize="7" fill={colors.textTertiary}
+                  textAnchor="middle" fontWeight="700"
+                >
+                  {d.week_label}
+                </SvgText>
+              ) : null}
+            </React.Fragment>
+          );
+        })}
+      </Svg>
+      <Text style={styles.chartHint}>
+        Mor: önceki haftalar · Indigo: bu hafta · Boş haftalar yarı saydam
+      </Text>
     </View>
   );
 }
@@ -858,4 +993,33 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8, paddingVertical: 4,
     fontSize: 10, color: colors.textSecondary, fontWeight: '700', textAlign: 'center',
   },
+
+  // AI haftalık grafik
+  aiStatsRow: {
+    flexDirection: 'row', gap: 8, marginBottom: 12,
+  },
+  aiStatTile: {
+    flex: 1, backgroundColor: colors.brandLight,
+    borderRadius: radius.sm, padding: 10, alignItems: 'center',
+  },
+  aiStatVal: { fontSize: 16, fontWeight: '800', color: colors.brand },
+  aiStatLabel: { fontSize: 10, color: colors.textSecondary, fontWeight: '700', marginTop: 2, textTransform: 'uppercase' },
+  chartBox: {
+    backgroundColor: colors.bg,
+    borderRadius: radius.sm,
+    padding: 10, marginBottom: 12,
+  },
+  chartTitle: { fontSize: 11, fontWeight: '800', color: colors.text, marginBottom: 6 },
+  chartHint: { fontSize: 9, color: colors.textTertiary, fontWeight: '600', marginTop: 4, fontStyle: 'italic' },
+
+  // Atla butonu
+  skipBtn: {
+    marginTop: 10,
+    height: 44,
+    borderRadius: radius.md,
+    alignItems: 'center', justifyContent: 'center',
+    backgroundColor: colors.negativeBg,
+    borderWidth: 1.5, borderColor: colors.negative,
+  },
+  skipBtnText: { color: colors.negative, fontSize: 13, fontWeight: '800' },
 });

@@ -10,7 +10,7 @@ Key yoksa endpoint'ler graceful mock cevap döner (demo modu).
 """
 import os
 import json
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from typing import Optional
 
 import requests
@@ -92,6 +92,8 @@ class MeetingPrepResponse(BaseModel):
     tips: list[str]
     summary: str
     ai_enabled: bool
+    weekly_chart: list[dict] | None = None  # [{week_label, sales, visits}]
+    customer_stats: dict | None = None  # {total_sales, visit_count, avg_sale, last_visit_date}
 
 
 # ─── Endpoint'ler ────────────────────────────────────
@@ -140,19 +142,67 @@ def prepare_meeting(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    """Belirli bir müşteriyle yapılacak görüşme için öneri üretir."""
+    """Belirli bir müşteriyle yapılacak görüşme için öneri + geçmiş satış grafiği."""
     customer = db.query(Customer).filter(Customer.id == customer_id).first()
     if not customer:
         raise HTTPException(status_code=404, detail="Müşteri bulunamadı")
 
-    # Önceki ziyaretler
-    past = (
+    # ── Geçmiş 12 haftalık satış grafiği ──
+    today = date.today()
+    twelve_weeks_ago = today - timedelta(weeks=12)
+    all_visits = (
         db.query(SalesVisit)
-        .filter(SalesVisit.user_id == user.id, SalesVisit.customer_id == customer_id)
-        .order_by(SalesVisit.visit_date.desc())
-        .limit(5)
+        .filter(
+            SalesVisit.user_id == user.id,
+            SalesVisit.customer_id == customer_id,
+            SalesVisit.visit_date >= twelve_weeks_ago,
+            SalesVisit.visited == 1,
+        )
+        .order_by(SalesVisit.visit_date)
         .all()
     )
+
+    # Haftalık aggregate
+    weekly_data = {}
+    for v in all_visits:
+        # Pazartesi başlangıçlı hafta key'i
+        wd = v.visit_date.weekday()
+        week_start = v.visit_date - timedelta(days=wd)
+        key = week_start.isoformat()
+        if key not in weekly_data:
+            weekly_data[key] = {"week_start": key, "week_label": "", "sales": 0, "visits": 0}
+        weekly_data[key]["sales"] += v.sale_amount
+        weekly_data[key]["visits"] += 1
+
+    # Son 12 haftayı boş günler için doldur
+    weekly_chart = []
+    for w in range(11, -1, -1):
+        week_start = today - timedelta(days=today.weekday()) - timedelta(weeks=w)
+        key = week_start.isoformat()
+        entry = weekly_data.get(key, {"week_start": key, "sales": 0, "visits": 0})
+        # Label: "17.04" gibi
+        entry["week_label"] = week_start.strftime("%d.%m")
+        weekly_chart.append({
+            "week_label": entry["week_label"],
+            "sales": round(entry["sales"], 0),
+            "visits": entry["visits"],
+        })
+
+    # Müşteri istatistikleri
+    total_sales = sum(v.sale_amount for v in all_visits)
+    visit_count = len(all_visits)
+    avg_sale = round(total_sales / visit_count, 0) if visit_count else 0
+    last_visit_date = all_visits[-1].visit_date.isoformat() if all_visits else None
+
+    customer_stats = {
+        "total_sales_12w": round(total_sales, 0),
+        "visit_count_12w": visit_count,
+        "avg_sale": avg_sale,
+        "last_visit_date": last_visit_date,
+    }
+
+    # Önceki ziyaretler (AI prompt için)
+    past = all_visits[-5:] if all_visits else []
 
     past_summary = ""
     if past:
@@ -177,14 +227,17 @@ def prepare_meeting(
     if not _ai_available():
         # Mock cevap
         tips = [
-            f"{customer.name} ile düzenli iletişimde kal — son ziyaretten {len(past)} kayıt var.",
+            f"{customer.name} ile düzenli iletişimde kal — son 12 haftada {visit_count} ziyaret kaydı var.",
             f"Aylık {int(customer.monthly_revenue)} ₺ ciro yapıyor — hedeflerini öğren ve büyüme planı sun.",
             "Ziyaret öncesi önceki notları gözden geçir, kaldığın yerden devam et.",
             "Müşteri itirazlarına hazırlıklı git: fiyat, teslimat süresi, vade.",
             "Görüşme sonunda somut bir aksiyon belirle (tekrar ziyaret tarihi, teklif gönderimi).",
         ]
         summary = f"{customer.name} — Aylık {int(customer.monthly_revenue)} ₺ potansiyeli olan {customer.customer_type or 'müşteri'}."
-        return MeetingPrepResponse(tips=tips, summary=summary, ai_enabled=False)
+        return MeetingPrepResponse(
+            tips=tips, summary=summary, ai_enabled=False,
+            weekly_chart=weekly_chart, customer_stats=customer_stats,
+        )
 
     prompt = (
         f"{customer_brief}\n{past_summary}\n\n"
@@ -206,6 +259,8 @@ def prepare_meeting(
             tips=parsed.get("tips", [])[:5],
             summary=parsed.get("summary", "").strip(),
             ai_enabled=True,
+            weekly_chart=weekly_chart,
+            customer_stats=customer_stats,
         )
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"AI cevabı işlenemedi: {e}")
