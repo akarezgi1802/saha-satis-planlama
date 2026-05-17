@@ -165,6 +165,20 @@ class SalesVisit(Base):
 
     user = relationship("User")
     customer = relationship("Customer")
+    photos = relationship("SalesVisitPhoto", back_populates="visit", cascade="all, delete-orphan")
+
+
+class SalesVisitPhoto(Base):
+    """Ziyaret esnasında çekilen fotoğraflar — raf düzeni, ürün stok durumu kanıtı."""
+    __tablename__ = "sales_visit_photos"
+
+    id = Column(Integer, primary_key=True, index=True)
+    visit_id = Column(Integer, ForeignKey("sales_visits.id"), nullable=False, index=True)
+    photo_data = Column(Text, nullable=False)  # base64 encoded image (data URL)
+    caption = Column(String(200), nullable=True)
+    taken_at = Column(DateTime, default=datetime.utcnow)
+
+    visit = relationship("SalesVisit", back_populates="photos")
 
 
 class Announcement(Base):

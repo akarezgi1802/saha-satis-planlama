@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 
 from ..database import get_db
-from ..models import User, Customer, SalesVisit, Plan, DailyRoute, RouteStop, WeeklyAssignment
+from ..models import User, Customer, SalesVisit, SalesVisitPhoto, Plan, DailyRoute, RouteStop, WeeklyAssignment
 from ..schemas import SalesVisitCreate, SalesVisitOut
 from ..auth import get_current_user, require_admin
 
@@ -26,6 +26,12 @@ class CheckInRequest(BaseModel):
     customer_id: int
     lat: float
     lng: float
+
+
+class PhotoUploadRequest(BaseModel):
+    customer_id: int
+    photo_data: str  # data URL formatında base64 (data:image/jpeg;base64,...)
+    caption: str | None = None
 
 # ── Sürdürülebilirlik sabitleri ──
 # Naif rotalama (rastgele/kronolojik) vs. optimize: tipik ~30% daha kısa
@@ -183,6 +189,96 @@ def get_summary(
         "this_month": monthly,
         "daily_breakdown": daily_breakdown,
     }
+
+
+@router.post("/visits/photos", status_code=201)
+def upload_visit_photo(
+    body: PhotoUploadRequest,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Ziyaret fotoğrafı ekle (raf, sergi, stok kanıtı). Bugünkü visit yoksa oluşturur."""
+    if not body.photo_data or len(body.photo_data) < 100:
+        raise HTTPException(status_code=400, detail="Geçersiz foto verisi")
+    if len(body.photo_data) > 5_000_000:  # ~5MB base64 limit
+        raise HTTPException(status_code=400, detail="Foto çok büyük (max 5MB)")
+
+    today = date.today()
+    visit = db.query(SalesVisit).filter(
+        SalesVisit.user_id == user.id,
+        SalesVisit.customer_id == body.customer_id,
+        SalesVisit.visit_date == today,
+    ).first()
+    if not visit:
+        visit = SalesVisit(
+            user_id=user.id, customer_id=body.customer_id,
+            visit_date=today, visited=0, sale_amount=0,
+        )
+        db.add(visit)
+        db.commit()
+        db.refresh(visit)
+
+    photo = SalesVisitPhoto(
+        visit_id=visit.id,
+        photo_data=body.photo_data,
+        caption=body.caption,
+    )
+    db.add(photo)
+    db.commit()
+    db.refresh(photo)
+    return {
+        "id": photo.id,
+        "visit_id": visit.id,
+        "caption": photo.caption,
+        "taken_at": photo.taken_at.isoformat(),
+    }
+
+
+@router.get("/visits/{customer_id}/photos")
+def list_visit_photos(
+    customer_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Bugünkü ziyaretin fotoğrafları."""
+    today = date.today()
+    visit = db.query(SalesVisit).filter(
+        SalesVisit.user_id == user.id,
+        SalesVisit.customer_id == customer_id,
+        SalesVisit.visit_date == today,
+    ).first()
+    if not visit:
+        return []
+    photos = db.query(SalesVisitPhoto).filter(
+        SalesVisitPhoto.visit_id == visit.id
+    ).order_by(SalesVisitPhoto.taken_at.desc()).all()
+    return [
+        {
+            "id": p.id,
+            "photo_data": p.photo_data,
+            "caption": p.caption,
+            "taken_at": p.taken_at.isoformat(),
+        }
+        for p in photos
+    ]
+
+
+@router.delete("/visits/photos/{photo_id}")
+def delete_visit_photo(
+    photo_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Fotoğrafı sil (sadece kendi visit'inden)."""
+    photo = db.query(SalesVisitPhoto).filter(SalesVisitPhoto.id == photo_id).first()
+    if not photo:
+        raise HTTPException(status_code=404, detail="Foto bulunamadı")
+    visit = db.query(SalesVisit).filter(SalesVisit.id == photo.visit_id).first()
+    if not visit or visit.user_id != user.id:
+        raise HTTPException(status_code=403, detail="Yetkiniz yok")
+    db.delete(photo)
+    db.commit()
+    return {"detail": "Fotoğraf silindi"}
 
 
 @router.post("/check-in")

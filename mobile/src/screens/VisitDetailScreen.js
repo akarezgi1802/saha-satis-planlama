@@ -2,10 +2,11 @@ import React, { useCallback, useEffect, useState } from 'react';
 import {
   View, Text, ScrollView, StyleSheet, TextInput, TouchableOpacity,
   StatusBar, ActivityIndicator, Alert, KeyboardAvoidingView, Platform,
-  Linking,
+  Linking, Image,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as ImagePicker from 'expo-image-picker';
 import api from '../api';
 import { colors, radius, spacing, shadow, brandGradient, positiveGradient } from '../theme';
 import { Card, GradientButton, Tag, SectionTitle } from '../components/ui';
@@ -38,6 +39,10 @@ export default function VisitDetailScreen({ route, navigation }) {
   // GPS Check-in state
   const [checkInStatus, setCheckInStatus] = useState(null);
   const [checkInLoading, setCheckInLoading] = useState(false);
+
+  // Foto state
+  const [photos, setPhotos] = useState([]);
+  const [photoUploading, setPhotoUploading] = useState(false);
 
   const openDirections = async () => {
     if (!customer) return;
@@ -89,7 +94,7 @@ export default function VisitDetailScreen({ route, navigation }) {
 
   const load = useCallback(async () => {
     try {
-      const [c, v, camp, ci] = await Promise.all([
+      const [c, v, camp, ci, ph] = await Promise.all([
         api.get(`/customers/${customerId}`),
         api.get('/performance/visits', {
           params: {
@@ -99,10 +104,12 @@ export default function VisitDetailScreen({ route, navigation }) {
         }),
         api.get('/campaigns/', { params: { active_only: true } }).catch(() => ({ data: [] })),
         api.get(`/performance/check-in-status/${customerId}`).catch(() => ({ data: null })),
+        api.get(`/performance/visits/${customerId}/photos`).catch(() => ({ data: [] })),
       ]);
       setCustomer(c.data);
       setCampaigns(camp.data || []);
       setCheckInStatus(ci.data);
+      setPhotos(ph.data || []);
       const today = new Date().toISOString().slice(0, 10);
       const ex = (v.data || []).find(x => x.customer_id === customerId && x.visit_date === today);
       if (ex) {
@@ -116,6 +123,81 @@ export default function VisitDetailScreen({ route, navigation }) {
       setLoading(false);
     }
   }, [customerId]);
+
+  // Foto seçme + yükleme
+  const pickAndUploadPhoto = async (useCamera) => {
+    setPhotoUploading(true);
+    try {
+      // İzin
+      if (useCamera) {
+        const { status } = await ImagePicker.requestCameraPermissionsAsync();
+        if (status !== 'granted') {
+          if (IS_WEB) { /* web zaten file input ile çalışır */ } else {
+            throw new Error('Kamera izni reddedildi');
+          }
+        }
+      } else {
+        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (status !== 'granted' && !IS_WEB) {
+          throw new Error('Galery izni reddedildi');
+        }
+      }
+
+      const opts = {
+        mediaTypes: ImagePicker.MediaTypeOptions?.Images || 'images',
+        quality: 0.6,
+        base64: true,
+        allowsEditing: false,
+      };
+      const result = useCamera
+        ? await ImagePicker.launchCameraAsync(opts)
+        : await ImagePicker.launchImageLibraryAsync(opts);
+
+      if (result.canceled) return;
+      const asset = result.assets?.[0];
+      if (!asset) return;
+
+      // Base64 data URL formatı
+      const base64 = asset.base64;
+      if (!base64) {
+        throw new Error('Foto verisi alınamadı');
+      }
+      const mime = asset.mimeType || 'image/jpeg';
+      const dataUrl = `data:${mime};base64,${base64}`;
+
+      await api.post('/performance/visits/photos', {
+        customer_id: customerId,
+        photo_data: dataUrl,
+        caption: null,
+      });
+
+      // Yeniden yükle
+      const ph = await api.get(`/performance/visits/${customerId}/photos`);
+      setPhotos(ph.data || []);
+    } catch (e) {
+      Alert.alert('Hata', e.response?.data?.detail || e.message || 'Foto yüklenemedi');
+    } finally {
+      setPhotoUploading(false);
+    }
+  };
+
+  const deletePhoto = async (photoId) => {
+    const confirmed = IS_WEB
+      ? (typeof window !== 'undefined' && window.confirm('Bu fotoğrafı sil?'))
+      : await new Promise(resolve => {
+          Alert.alert('Sil?', 'Bu fotoğrafı silmek istediğine emin misin?', [
+            { text: 'İptal', onPress: () => resolve(false), style: 'cancel' },
+            { text: 'Sil', onPress: () => resolve(true), style: 'destructive' },
+          ]);
+        });
+      if (!confirmed) return;
+    try {
+      await api.delete(`/performance/visits/photos/${photoId}`);
+      setPhotos(photos.filter(p => p.id !== photoId));
+    } catch (e) {
+      Alert.alert('Hata', e.response?.data?.detail || 'Silinemedi');
+    }
+  };
 
   // GPS Check-in
   const handleCheckIn = async () => {
@@ -294,6 +376,63 @@ export default function VisitDetailScreen({ route, navigation }) {
                   ) : null}
                 </View>
               </Card>
+
+              {/* Fotoğraflar — raf düzeni, stok kanıtı */}
+              <SectionTitle right={
+                <View style={{ flexDirection: 'row', gap: 6 }}>
+                  {!IS_WEB ? (
+                    <TouchableOpacity
+                      style={styles.photoBtn}
+                      onPress={() => pickAndUploadPhoto(true)}
+                      disabled={photoUploading}
+                    >
+                      <Text style={styles.photoBtnText}>📷 Çek</Text>
+                    </TouchableOpacity>
+                  ) : null}
+                  <TouchableOpacity
+                    style={styles.photoBtn}
+                    onPress={() => pickAndUploadPhoto(false)}
+                    disabled={photoUploading}
+                  >
+                    <Text style={styles.photoBtnText}>
+                      {IS_WEB ? '📁 Foto Ekle' : '🖼️ Galery'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              }>
+                📷 Fotoğraflar ({photos.length})
+              </SectionTitle>
+
+              {photoUploading ? (
+                <View style={[styles.photoEmpty, { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 }]}>
+                  <ActivityIndicator size="small" color={colors.brand} />
+                  <Text style={styles.photoEmptyText}>Yükleniyor…</Text>
+                </View>
+              ) : photos.length === 0 ? (
+                <View style={styles.photoEmpty}>
+                  <Text style={styles.photoEmptyIcon}>📸</Text>
+                  <Text style={styles.photoEmptyText}>
+                    Raf düzeni, sergi veya stok durumunu fotoğrafla
+                  </Text>
+                </View>
+              ) : (
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+                  {photos.map(p => (
+                    <View key={p.id} style={styles.photoCard}>
+                      <Image source={{ uri: p.photo_data }} style={styles.photoImg} resizeMode="cover" />
+                      <TouchableOpacity
+                        style={styles.photoDeleteBtn}
+                        onPress={() => deletePhoto(p.id)}
+                      >
+                        <Text style={styles.photoDeleteText}>✕</Text>
+                      </TouchableOpacity>
+                      <Text style={styles.photoCaption}>
+                        {new Date(p.taken_at).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}
+                      </Text>
+                    </View>
+                  ))}
+                </ScrollView>
+              )}
 
               {/* GPS Check-in kartı */}
               <View style={styles.checkInCard}>
@@ -680,4 +819,43 @@ const styles = StyleSheet.create({
   checkInDoneIcon: { fontSize: 24 },
   checkInDoneTitle: { fontSize: 13, fontWeight: '800', color: colors.text },
   checkInDoneMeta: { fontSize: 11, color: colors.textSecondary, marginTop: 2, fontWeight: '500' },
+
+  // Foto
+  photoBtn: {
+    backgroundColor: colors.brand,
+    borderRadius: radius.full,
+    paddingHorizontal: 12, paddingVertical: 6,
+    ...shadow.sm,
+  },
+  photoBtnText: { color: '#fff', fontWeight: '700', fontSize: 11 },
+  photoEmpty: {
+    backgroundColor: '#fff',
+    borderRadius: radius.md,
+    borderWidth: 1, borderColor: colors.border,
+    borderStyle: 'dashed',
+    padding: 24,
+    alignItems: 'center',
+  },
+  photoEmptyIcon: { fontSize: 32, marginBottom: 6 },
+  photoEmptyText: { fontSize: 12, color: colors.textSecondary, fontWeight: '600', textAlign: 'center' },
+  photoCard: {
+    position: 'relative',
+    width: 120, height: 140,
+    backgroundColor: '#fff',
+    borderRadius: radius.md,
+    overflow: 'hidden',
+    ...shadow.sm,
+  },
+  photoImg: { width: '100%', height: 110 },
+  photoDeleteBtn: {
+    position: 'absolute', top: 4, right: 4,
+    width: 24, height: 24, borderRadius: 12,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  photoDeleteText: { color: '#fff', fontSize: 12, fontWeight: '800' },
+  photoCaption: {
+    paddingHorizontal: 8, paddingVertical: 4,
+    fontSize: 10, color: colors.textSecondary, fontWeight: '700', textAlign: 'center',
+  },
 });
