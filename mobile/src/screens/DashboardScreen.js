@@ -225,47 +225,6 @@ export default function DashboardScreen({ navigation }) {
               ) : null}
             </Card>
 
-            {/* Sürdürülebilirlik kartı */}
-            {sustainability && treesWeek > 0 ? (
-              <View style={styles.susCard}>
-                <LinearGradient
-                  colors={['#10b981', '#059669']}
-                  start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-                  style={styles.susBanner}
-                >
-                  <View style={styles.susBannerRow}>
-                    <View>
-                      <Text style={styles.susLabel}>🌱 BU HAFTAKI KATKIN</Text>
-                      <View style={{ flexDirection: 'row', alignItems: 'baseline', marginTop: 4 }}>
-                        <Text style={styles.susTreesValue}>{treesWeek.toFixed(treesWeek < 10 ? 2 : 1)}</Text>
-                        <Text style={styles.susTreesUnit}> ağaç</Text>
-                      </View>
-                      <Text style={styles.susSubtitle}>
-                        Optimize rota sayesinde fazla yol gitmedin
-                      </Text>
-                    </View>
-                    <Text style={styles.susBigEmoji}>🌳</Text>
-                  </View>
-                </LinearGradient>
-                <View style={styles.susStats}>
-                  <View style={styles.susStat}>
-                    <Text style={styles.susStatVal}>{kmSavedWeek.toFixed(0)}</Text>
-                    <Text style={styles.susStatLabel}>km tasarruf</Text>
-                  </View>
-                  <View style={styles.susDivider} />
-                  <View style={styles.susStat}>
-                    <Text style={styles.susStatVal}>{co2Week.toFixed(1)}</Text>
-                    <Text style={styles.susStatLabel}>kg CO₂</Text>
-                  </View>
-                  <View style={styles.susDivider} />
-                  <View style={styles.susStat}>
-                    <Text style={styles.susStatVal}>{(susWeek.visits || 0)}</Text>
-                    <Text style={styles.susStatLabel}>ziyaret</Text>
-                  </View>
-                </View>
-              </View>
-            ) : null}
-
             <SectionTitle>Bugün</SectionTitle>
             <View style={styles.kpiRow}>
               <KpiTile label="Satış" value={formatTL(todaySales, false)} unit="₺" accent={colors.positive} />
@@ -273,12 +232,29 @@ export default function DashboardScreen({ navigation }) {
               <KpiTile label="Müşteri" value={todayCustomers} unit="" accent={colors.brandPurple} />
             </View>
 
-            <SectionTitle>Bu Hafta · Bu Ay</SectionTitle>
-            <View style={styles.kpiRow}>
-              <KpiTile label="Hafta Satış" value={formatTL(weekSales, false)} unit="₺" accent={colors.brandPurple} />
-              <KpiTile label="Hafta Ziy." value={weekVisits} unit="" accent={colors.informative} />
-              <KpiTile label="Ay Satış" value={formatTL(monthSales, false)} unit="₺" accent={colors.brand} />
-            </View>
+            {/* AI Asistan — büyük çekici CTA kartı */}
+            <TouchableOpacity
+              activeOpacity={0.9}
+              onPress={() => navigation.navigate('AIAssistant')}
+              style={{ marginTop: spacing.md }}
+            >
+              <LinearGradient
+                colors={['#6366f1', '#8b5cf6']}
+                start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+                style={styles.aiCta}
+              >
+                <View style={styles.aiCtaIcon}>
+                  <Text style={{ fontSize: 28 }}>🤖</Text>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.aiCtaTitle}>AI Asistan</Text>
+                  <Text style={styles.aiCtaSub}>
+                    Bugünkü özetini iste, satış tavsiyesi al, müşteri için hazırlan
+                  </Text>
+                </View>
+                <Text style={styles.aiCtaChev}>›</Text>
+              </LinearGradient>
+            </TouchableOpacity>
 
             {/* Kampanyalar */}
             {campaigns.length > 0 ? (
@@ -328,25 +304,7 @@ export default function DashboardScreen({ navigation }) {
               </>
             ) : null}
 
-            <SectionTitle>Bu Hafta Grafiği</SectionTitle>
-            <Card>
-              {summary?.daily_breakdown?.map((d, i) => {
-                const max = Math.max(1, ...(summary.daily_breakdown.map(x => x.sales)));
-                return (
-                  <View key={i} style={styles.dayRow}>
-                    <Text style={styles.dayName}>{d.day_name}</Text>
-                    <View style={styles.barTrack}>
-                      <View style={[styles.bar, { width: `${(d.sales / max) * 100}%`, backgroundColor: colors.brand }]} />
-                    </View>
-                    <Text style={styles.dayVal}>{formatTL(d.sales)}</Text>
-                  </View>
-                );
-              })}
-              {(!summary?.daily_breakdown || summary.daily_breakdown.every(d => d.sales === 0)) ? (
-                <EmptyState icon="📊" title="Henüz satış yok" subtitle="İlk ziyaretini tamamladığında burada görünür" />
-              ) : null}
-            </Card>
-
+            {/* Hızlı erişim — Müşteriler + Görevler */}
             <View style={{ flexDirection: 'row', gap: 10, marginTop: spacing.md }}>
               <TouchableLink
                 icon="👥"
@@ -355,11 +313,11 @@ export default function DashboardScreen({ navigation }) {
                 onPress={() => navigation.navigate('Customers')}
               />
               <TouchableLink
-                icon="🤖"
-                title="AI Asistan"
-                subtitle="Sohbet et / hazırlan"
-                onPress={() => navigation.navigate('AI')}
-                accent={colors.brandPurple}
+                icon="📝"
+                title="Görevlerim"
+                subtitle="Yapılacaklar"
+                onPress={() => navigation.navigate('Tasks')}
+                accent={colors.accent}
               />
             </View>
 
@@ -539,4 +497,20 @@ const styles = StyleSheet.create({
   linkTitle: { fontSize: 13, fontWeight: '800', color: colors.text },
   linkSubtitle: { fontSize: 10, color: colors.textSecondary, fontWeight: '600', marginTop: 1 },
   linkChev: { fontSize: 22, fontWeight: '800' },
+
+  // AI CTA kartı
+  aiCta: {
+    flexDirection: 'row', alignItems: 'center',
+    borderRadius: radius.md,
+    padding: 16, gap: 14,
+    ...shadow.md,
+  },
+  aiCtaIcon: {
+    width: 54, height: 54, borderRadius: 16,
+    backgroundColor: 'rgba(255,255,255,0.18)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  aiCtaTitle: { color: '#fff', fontSize: 17, fontWeight: '800' },
+  aiCtaSub: { color: 'rgba(255,255,255,0.85)', fontSize: 12, fontWeight: '600', marginTop: 3, lineHeight: 16 },
+  aiCtaChev: { color: '#fff', fontSize: 32, fontWeight: '300' },
 });

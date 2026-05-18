@@ -26,19 +26,13 @@ export default function PerformanceScreen() {
   const { user } = useAuth();
   const [period, setPeriod] = useState('week');
   const [leaderboard, setLeaderboard] = useState(null);
-  const [badges, setBadges] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [tab, setTab] = useState('leaderboard'); // leaderboard | badges
 
   const load = useCallback(async () => {
     try {
-      const [lb, bg] = await Promise.all([
-        api.get('/performance/leaderboard', { params: { period } }),
-        api.get('/performance/badges'),
-      ]);
+      const lb = await api.get('/performance/leaderboard', { params: { period } });
       setLeaderboard(lb.data);
-      setBadges(bg.data);
     } catch {} finally {
       setLoading(false);
       setRefreshing(false);
@@ -54,20 +48,14 @@ export default function PerformanceScreen() {
       <LinearGradient colors={brandGradient} style={[styles.hero, { paddingTop: insets.top + 14 }]}>
         <View style={styles.heroRow}>
           <View style={{ flex: 1 }}>
-            <Text style={styles.heroTitle}>Performans</Text>
+            <Text style={styles.heroTitle}>🏆 Liderlik Tablosu</Text>
             <Text style={styles.heroSub}>
-              {badges
-                ? `${badges.earned_count}/${badges.total_count} rozet · ${badges.stats.streak} günlük seri`
-                : 'Liderlik tablosu · Rozetler'}
+              {leaderboard?.my_rank
+                ? `Sıralamadaki yerin: #${leaderboard.my_rank} / ${leaderboard.total_reps}`
+                : 'Satış temsilcileri sıralaması'}
             </Text>
           </View>
           <HeaderActions />
-        </View>
-
-        {/* Tab segments */}
-        <View style={styles.segments}>
-          <SegBtn label="🏆 Liderlik" active={tab === 'leaderboard'} onPress={() => setTab('leaderboard')} />
-          <SegBtn label="🎖️ Rozetler" active={tab === 'badges'} onPress={() => setTab('badges')} count={badges?.earned_count} />
         </View>
       </LinearGradient>
 
@@ -80,14 +68,12 @@ export default function PerformanceScreen() {
           <View style={{ paddingTop: 60, alignItems: 'center' }}>
             <ActivityIndicator color={colors.brand} size="large" />
           </View>
-        ) : tab === 'leaderboard' ? (
+        ) : (
           <LeaderboardView
             leaderboard={leaderboard}
             period={period}
             onPeriodChange={setPeriod}
           />
-        ) : (
-          <BadgesView badges={badges} />
         )}
       </ScrollView>
     </View>

@@ -10,17 +10,29 @@ import api, { API_BASE_URL } from '../api';
 import { colors, radius, spacing, shadow, brandGradient, shellGradient } from '../theme';
 import { Card } from '../components/ui';
 
+function formatTL(n) {
+  if (n == null || n === 0) return '0';
+  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M';
+  if (n >= 1_000) return (n / 1_000).toFixed(0) + 'K';
+  return Number(n).toLocaleString('tr-TR', { maximumFractionDigits: 0 });
+}
+
 export default function ProfileScreen() {
   const { user, logout } = useAuth();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const [sustainability, setSustainability] = useState(null);
+  const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
     try {
-      const r = await api.get('/performance/sustainability');
-      setSustainability(r.data);
+      const [s, perf] = await Promise.all([
+        api.get('/performance/sustainability'),
+        api.get('/performance/summary'),
+      ]);
+      setSustainability(s.data);
+      setSummary(perf.data);
     } catch {} finally {
       setLoading(false);
     }
@@ -79,6 +91,73 @@ export default function ProfileScreen() {
       </LinearGradient>
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 14, paddingBottom: 40 }}>
+
+        {/* Detaylı kişisel KPI'lar — Bu Hafta + Bu Ay */}
+        {summary ? (
+          <View style={styles.kpiSection}>
+            <Text style={styles.section}>BU HAFTA</Text>
+            <View style={styles.kpiRow}>
+              <KpiCard
+                label="Satış"
+                value={formatTL(summary.this_week?.total_sales)}
+                unit="₺"
+                color={colors.positive}
+              />
+              <KpiCard
+                label="Ziyaret"
+                value={summary.this_week?.visit_count || 0}
+                color={colors.brand}
+              />
+              <KpiCard
+                label="Müşteri"
+                value={summary.this_week?.customer_count || 0}
+                color={colors.brandPurple}
+              />
+            </View>
+
+            <Text style={[styles.section, { marginTop: 12 }]}>BU AY</Text>
+            <View style={styles.kpiRow}>
+              <KpiCard
+                label="Satış"
+                value={formatTL(summary.this_month?.total_sales)}
+                unit="₺"
+                color={colors.positive}
+              />
+              <KpiCard
+                label="Ziyaret"
+                value={summary.this_month?.visit_count || 0}
+                color={colors.brand}
+              />
+              <KpiCard
+                label="Müşteri"
+                value={summary.this_month?.customer_count || 0}
+                color={colors.brandPurple}
+              />
+            </View>
+
+            {/* Haftalık grafik */}
+            {summary.daily_breakdown?.length ? (
+              <View style={[styles.weekChart, { marginTop: 14 }]}>
+                <Text style={styles.weekChartTitle}>📊 Haftalık dağılım</Text>
+                {summary.daily_breakdown.map((d, i) => {
+                  const max = Math.max(1, ...summary.daily_breakdown.map(x => x.sales));
+                  return (
+                    <View key={i} style={styles.weekChartRow}>
+                      <Text style={styles.weekChartDay}>{d.day_name}</Text>
+                      <View style={styles.weekChartTrack}>
+                        <View style={[
+                          styles.weekChartBar,
+                          { width: `${(d.sales / max) * 100}%` },
+                        ]} />
+                      </View>
+                      <Text style={styles.weekChartVal}>{formatTL(d.sales)} ₺</Text>
+                    </View>
+                  );
+                })}
+              </View>
+            ) : null}
+          </View>
+        ) : null}
 
         {/* Sürdürülebilirlik Katkım */}
         <View style={styles.susHero}>
@@ -176,6 +255,38 @@ export default function ProfileScreen() {
   );
 }
 
+function KpiCard({ label, value, unit, color }) {
+  return (
+    <View style={kpiStyles.tile}>
+      <View style={[kpiStyles.accent, { backgroundColor: color }]} />
+      <Text style={kpiStyles.label}>{label.toUpperCase()}</Text>
+      <View style={{ flexDirection: 'row', alignItems: 'baseline' }}>
+        <Text style={[kpiStyles.value, { color }]}>{value}</Text>
+        {unit ? <Text style={kpiStyles.unit}> {unit}</Text> : null}
+      </View>
+    </View>
+  );
+}
+
+const kpiStyles = StyleSheet.create({
+  tile: {
+    flex: 1,
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: 12,
+    overflow: 'hidden',
+    ...shadow.sm,
+  },
+  accent: {
+    position: 'absolute', top: 0, left: 0, right: 0, height: 3,
+  },
+  label: { fontSize: 9, fontWeight: '800', color: colors.textTertiary, letterSpacing: 0.5, marginBottom: 6 },
+  value: { fontSize: 18, fontWeight: '800', letterSpacing: -0.3 },
+  unit: { fontSize: 11, color: colors.textSecondary, fontWeight: '700' },
+});
+
 function SusTile({ value, unit, label }) {
   return (
     <View style={styles.susTile}>
@@ -210,6 +321,21 @@ const styles = StyleSheet.create({
   },
   backIcon: { color: '#fff', fontSize: 26, fontWeight: '700', marginTop: -4 },
   topTitle: { color: '#fff', fontSize: 16, fontWeight: '800' },
+  kpiSection: { marginBottom: 6 },
+  kpiRow: { flexDirection: 'row', gap: 8 },
+  weekChart: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    borderWidth: 1, borderColor: colors.border,
+    padding: 14,
+    ...shadow.sm,
+  },
+  weekChartTitle: { fontSize: 12, fontWeight: '800', color: colors.text, marginBottom: 10 },
+  weekChartRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 3 },
+  weekChartDay: { width: 36, fontSize: 11, fontWeight: '700', color: colors.textSecondary },
+  weekChartTrack: { flex: 1, height: 6, backgroundColor: colors.borderLight, borderRadius: 3, marginHorizontal: 8 },
+  weekChartBar: { height: 6, backgroundColor: colors.brand, borderRadius: 3 },
+  weekChartVal: { width: 70, fontSize: 10, fontWeight: '700', color: colors.text, textAlign: 'right' },
   avatarBig: {
     width: 82, height: 82, borderRadius: 41,
     backgroundColor: 'rgba(255,255,255,0.18)',
