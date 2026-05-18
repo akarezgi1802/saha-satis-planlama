@@ -95,7 +95,8 @@ export default function MyPlanScreen({ navigation }) {
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
-  // Plan + selectedDay değiştiğinde TomTom trafik rotasını çek
+  // Plan + selectedDay + visits değiştiğinde TomTom trafik rotasını çek
+  // (visits değişince -> bugün ziyaret edilen/atlanan müşteriler hariç rota)
   const loadLiveRoute = useCallback(async () => {
     if (!latestPlan || user?.cluster_index == null) {
       setLiveRoute(null);
@@ -103,7 +104,9 @@ export default function MyPlanScreen({ navigation }) {
     }
     setLiveLoading(true);
     try {
-      const r = await api.get(`/routing/live/${latestPlan.id}/${selectedDay}`);
+      const r = await api.get(`/routing/live/${latestPlan.id}/${selectedDay}`, {
+        params: { skip_handled: true },
+      });
       setLiveRoute(r.data?.has_route ? r.data : null);
     } catch (e) {
       setLiveRoute(null);
@@ -112,8 +115,9 @@ export default function MyPlanScreen({ navigation }) {
     }
   }, [latestPlan, selectedDay, user?.cluster_index]);
 
-  // selectedDay veya plan değişince yeniden çağır
-  useEffect(() => { loadLiveRoute(); }, [loadLiveRoute]);
+  // selectedDay/plan/visits değişince yeniden çağır
+  // (visits → atla butonu sonrası rota otomatik güncellenir)
+  useEffect(() => { loadLiveRoute(); }, [loadLiveRoute, visits]);
 
   const onRefresh = () => { setRefreshing(true); load(); loadLiveRoute(); };
 
@@ -342,6 +346,26 @@ export default function MyPlanScreen({ navigation }) {
   );
 }
 
+function IncidentBanner({ incidents }) {
+  if (!incidents || incidents.length === 0) return null;
+  const top = incidents[0];
+  const moreCount = incidents.length - 1;
+  return (
+    <View style={styles.incidentBanner}>
+      <Text style={styles.incidentIcon}>{top.icon || '⚠️'}</Text>
+      <View style={{ flex: 1 }}>
+        <Text style={styles.incidentTitle}>
+          {top.type}{top.delay_minutes ? ` · +${top.delay_minutes} dk gecikme` : ''}
+        </Text>
+        <Text style={styles.incidentText} numberOfLines={2}>
+          {top.description || 'Rotanızdaki bir noktada trafik olayı tespit edildi'}
+          {moreCount > 0 ? ` · ve ${moreCount} olay daha` : ''}
+        </Text>
+      </View>
+    </View>
+  );
+}
+
 function MapPlanView({ stops, depot, region, polylineCoords, isVisited, progressPercent, visitedCount, totalDistance, totalTime, liveRoute, liveLoading, onRefreshLive, activeStop, onActiveDirections, onStopPress }) {
   return (
     <View style={{ flex: 1 }}>
@@ -398,27 +422,33 @@ function MapPlanView({ stops, depot, region, polylineCoords, isVisited, progress
         })}
       </MapView>
 
-      {/* Trafik bilgisi (üstte, harita üzerinde) */}
+      {/* Trafik bilgisi + Olay uyarısı (üstte, harita üzerinde) */}
       {liveRoute ? (
-        <View style={styles.trafficBanner}>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.trafficText}>{liveRoute.summary_text}</Text>
-            <Text style={styles.trafficProvider}>
-              {liveRoute.provider === 'tomtom'
-                ? '⚡ TomTom · canlı trafik'
-                : '📐 Tahmini (TomTom key ekleyince canlı olur)'}
-            </Text>
+        <View style={styles.trafficStack}>
+          <View style={styles.trafficBanner}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.trafficText}>{liveRoute.summary_text}</Text>
+              <Text style={styles.trafficProvider}>
+                {liveRoute.provider === 'tomtom'
+                  ? '⚡ TomTom · canlı trafik'
+                  : '📐 Tahmini (TomTom key ekleyince canlı olur)'}
+                {liveRoute.remaining_count != null && liveRoute.handled_count > 0
+                  ? ` · ${liveRoute.remaining_count} müşteri kaldı`
+                  : ''}
+              </Text>
+            </View>
+            <TouchableOpacity
+              onPress={onRefreshLive}
+              disabled={liveLoading}
+              style={styles.trafficRefresh}
+              activeOpacity={0.7}
+            >
+              {liveLoading
+                ? <ActivityIndicator size="small" color="#fff" />
+                : <Text style={styles.trafficRefreshText}>↻</Text>}
+            </TouchableOpacity>
           </View>
-          <TouchableOpacity
-            onPress={onRefreshLive}
-            disabled={liveLoading}
-            style={styles.trafficRefresh}
-            activeOpacity={0.7}
-          >
-            {liveLoading
-              ? <ActivityIndicator size="small" color="#fff" />
-              : <Text style={styles.trafficRefreshText}>↻</Text>}
-          </TouchableOpacity>
+          <IncidentBanner incidents={liveRoute.incidents} />
         </View>
       ) : liveLoading ? (
         <View style={styles.trafficBanner}>
@@ -493,6 +523,9 @@ function ListPlanView({ stops, isVisited, progressPercent, visitedCount, totalDi
       contentContainerStyle={{ padding: 14, paddingBottom: 40 }}
       refreshControl={refreshControl}
     >
+      {/* Olay uyarısı — kaza, yol kapanma vs. */}
+      {liveRoute?.incidents?.length ? <IncidentBanner incidents={liveRoute.incidents} /> : null}
+
       {/* Aktif adım kartı — liste view */}
       {activeStop ? (
         <View style={styles.activeStepCardList}>
@@ -715,14 +748,24 @@ const styles = StyleSheet.create({
   stopAction: { color: colors.brand, fontWeight: '700', fontSize: 12 },
 
   // Trafik
+  trafficStack: { position: 'absolute', top: 14, left: 14, right: 14, gap: 8 },
   trafficBanner: {
-    position: 'absolute', top: 14, left: 14, right: 14,
     backgroundColor: 'rgba(30, 27, 75, 0.95)',
     borderRadius: radius.md,
     padding: 12,
     flexDirection: 'row', alignItems: 'center',
     ...shadow.lg,
   },
+  incidentBanner: {
+    backgroundColor: 'rgba(239, 68, 68, 0.95)',  // negative red, semi-transparent
+    borderRadius: radius.md,
+    padding: 12,
+    flexDirection: 'row', alignItems: 'flex-start', gap: 10,
+    ...shadow.lg,
+  },
+  incidentIcon: { fontSize: 22 },
+  incidentTitle: { color: '#fff', fontSize: 13, fontWeight: '800' },
+  incidentText: { color: 'rgba(255,255,255,0.92)', fontSize: 11, fontWeight: '600', marginTop: 2, lineHeight: 15 },
   trafficText: { color: '#fff', fontSize: 13, fontWeight: '700', flex: 1 },
   trafficProvider: { color: 'rgba(255,255,255,0.6)', fontSize: 10, fontWeight: '600', marginTop: 2 },
   trafficRefresh: {

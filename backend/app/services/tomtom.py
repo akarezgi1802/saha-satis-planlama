@@ -189,6 +189,111 @@ def _fallback_route(
     }
 
 
+def get_incidents(bbox: tuple[float, float, float, float], limit: int = 20) -> dict:
+    """
+    Rotanın çevresinde TomTom Traffic Incidents — kaza, yol kapanması, yoğunluk.
+
+    bbox = (min_lng, min_lat, max_lng, max_lat)
+    Return: {"available": bool, "incidents": [{type, severity, description, ...}], "warnings": []}
+    """
+    if not is_available():
+        return {"available": False, "incidents": [], "warnings": ["TomTom API key tanımlı değil"]}
+
+    url = "https://api.tomtom.com/traffic/services/5/incidentDetails"
+    params = {
+        "key": TOMTOM_API_KEY,
+        "bbox": f"{bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]}",
+        "fields": "{incidents{type,geometry{type,coordinates},properties{iconCategory,magnitudeOfDelay,events{description,iconCategory},delay,length,startTime,endTime,from,to}}}",
+        "language": "tr-TR",
+        "timeValidityFilter": "present",
+    }
+    try:
+        r = requests.get(url, params=params, timeout=15)
+        if r.status_code != 200:
+            return {"available": False, "incidents": [], "warnings": [f"TomTom incident hata {r.status_code}"]}
+        data = r.json()
+        raw_incidents = data.get("incidents", [])[:limit]
+
+        # ICON kategorileri (TomTom dokümanından)
+        icon_labels = {
+            0: ("Bilinmiyor", "ℹ️"),
+            1: ("Kaza", "🚨"),
+            2: ("Sis", "🌫️"),
+            3: ("Tehlikeli koşullar", "⚠️"),
+            4: ("Yağmur", "🌧️"),
+            5: ("Buzlanma", "🧊"),
+            6: ("Yol kapalı", "⛔"),
+            7: ("Şerit kapalı", "🚧"),
+            8: ("Yol çalışması", "🚧"),
+            9: ("Rüzgar", "💨"),
+            10: ("Sel", "🌊"),
+            11: ("Detour", "↪️"),
+            14: ("Trafik yoğun", "🟠"),
+        }
+
+        # Magnitude of delay (gecikme şiddeti)
+        magnitude_labels = {
+            0: "Bilinmiyor",
+            1: "Hafif",
+            2: "Orta",
+            3: "Şiddetli",
+            4: "Yol kapanma",
+        }
+
+        incidents = []
+        for inc in raw_incidents:
+            props = inc.get("properties", {})
+            icon_cat = props.get("iconCategory", 0)
+            label, emoji = icon_labels.get(icon_cat, ("Bilinmiyor", "ℹ️"))
+            magnitude = props.get("magnitudeOfDelay", 0)
+
+            events = props.get("events", [])
+            description = " · ".join(e.get("description", "") for e in events if e.get("description"))
+            if not description:
+                description = label
+
+            delay_sec = props.get("delay", 0) or 0
+            length_m = props.get("length", 0) or 0
+
+            geometry = inc.get("geometry", {})
+            coords = geometry.get("coordinates", [])
+            # İlk koordinat (incident'ın başlangıcı)
+            first_coord = None
+            if coords:
+                if isinstance(coords[0], (int, float)):  # Point
+                    first_coord = [coords[1], coords[0]]  # lat, lng
+                elif isinstance(coords[0], list) and len(coords[0]) >= 2:
+                    # LineString veya Polygon
+                    pt = coords[0]
+                    if isinstance(pt[0], (int, float)):
+                        first_coord = [pt[1], pt[0]]
+
+            incidents.append({
+                "type": label,
+                "icon": emoji,
+                "icon_category": icon_cat,
+                "severity": magnitude_labels.get(magnitude, "Bilinmiyor"),
+                "severity_level": magnitude,
+                "description": description,
+                "delay_seconds": delay_sec,
+                "delay_minutes": round(delay_sec / 60) if delay_sec else 0,
+                "length_meters": length_m,
+                "from": props.get("from"),
+                "to": props.get("to"),
+                "location": first_coord,
+            })
+
+        # Önem sırasına göre sırala (severity_level azalan)
+        incidents.sort(key=lambda x: (-x["severity_level"], -x["delay_seconds"]))
+
+        return {"available": True, "incidents": incidents, "warnings": []}
+
+    except requests.RequestException as e:
+        return {"available": False, "incidents": [], "warnings": [f"TomTom bağlantı hatası: {e}"]}
+    except Exception as e:
+        return {"available": False, "incidents": [], "warnings": [f"İşlem hatası: {e}"]}
+
+
 def get_traffic_summary_text(result: dict) -> str:
     """Trafik durumunu insan dilinde özetle."""
     delay = result.get("traffic_delay_sec", 0)

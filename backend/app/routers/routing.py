@@ -1,14 +1,14 @@
 """
 Gerçek zamanlı trafik bazlı rotalama endpoint'leri.
 """
-from datetime import datetime
+from datetime import date, datetime
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from ..database import get_db
-from ..models import User, Customer, Plan, DailyRoute, RouteStop, AppSettings
+from ..models import User, Customer, Plan, DailyRoute, RouteStop, AppSettings, SalesVisit
 from ..auth import get_current_user
 from ..services import tomtom
 
@@ -29,16 +29,14 @@ def get_live_route(
     plan_id: int,
     day_of_week: int,
     depart_at: Optional[str] = Query(None, description="ISO format: 2024-01-15T08:00:00 (default: şimdi)"),
+    skip_handled: bool = Query(True, description="Bugün tamamlanan/atlanan müşterileri rotadan çıkar"),
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
     """
     Kullanıcının cluster'ı + belirli gün için TomTom trafikli rotası.
-
-    Args:
-        plan_id: Hangi plan
-        day_of_week: 1=Pzt..6=Cmt
-        depart_at: Kalkış zamanı (ISO, default şimdi)
+    skip_handled=True: bugün ziyaret edilen veya atlanan müşteriler çıkarılır,
+                       sadece kalan müşterilere göre rota yeniden hesaplanır.
     """
     plan = db.query(Plan).filter(Plan.id == plan_id).first()
     if not plan:
@@ -59,18 +57,42 @@ def get_live_route(
             "message": "Bu gün için rotanız yok",
         }
 
-    stops = db.query(RouteStop).filter(
+    all_stops = db.query(RouteStop).filter(
         RouteStop.daily_route_id == daily_route.id
     ).order_by(RouteStop.visit_order).all()
-    if not stops:
+    if not all_stops:
         return {"has_route": False, "message": "Bu gün için durak yok"}
+
+    # Bugün handled (ziyaret/atlanan) müşteriler
+    handled_customer_ids = set()
+    if skip_handled:
+        today_visits = db.query(SalesVisit).filter(
+            SalesVisit.user_id == user.id,
+            SalesVisit.visit_date == date.today(),
+        ).all()
+        handled_customer_ids = {v.customer_id for v in today_visits}
+
+    # Filtrelenmiş stop'lar (kalan müşteriler)
+    stops = [s for s in all_stops if s.customer_id not in handled_customer_ids]
+
+    if not stops:
+        return {
+            "has_route": True,
+            "all_done": True,
+            "message": "Tüm ziyaretler tamamlandı",
+            "total_stops": len(all_stops),
+            "handled_count": len(handled_customer_ids),
+            "remaining_count": 0,
+            "stops": [],
+            "polyline": [],
+        }
 
     # Depo koordinatları
     settings = db.query(AppSettings).first()
     depot_lat = settings.depot_x if settings else 38.6567541
     depot_lng = settings.depot_y if settings else 27.3435846
 
-    # Tüm koordinatları topla: depo → stops → depo
+    # Tüm koordinatları topla: depo → kalan stops → depo
     coords = [(depot_lat, depot_lng)]
     stop_details = []
     for stop in stops:
@@ -98,8 +120,22 @@ def get_live_route(
     route_result = tomtom.calculate_route(coords, depart_at=dep, traffic=True)
     summary_text = tomtom.get_traffic_summary_text(route_result)
 
+    # ── Rota bbox'unu hesapla ve incident'ları çek ──
+    lats = [c[0] for c in coords]
+    lngs = [c[1] for c in coords]
+    # Bbox biraz geniş tutulur (yola bitişik olaylar dahil)
+    margin = 0.02  # ~2km
+    bbox = (
+        min(lngs) - margin,
+        min(lats) - margin,
+        max(lngs) + margin,
+        max(lats) + margin,
+    )
+    incidents_result = tomtom.get_incidents(bbox)
+
     return {
         "has_route": True,
+        "all_done": False,
         "plan_id": plan_id,
         "plan_name": plan.name,
         "cluster_index": user.cluster_index,
@@ -120,4 +156,11 @@ def get_live_route(
         "provider": route_result["provider"],
         "summary_text": summary_text,
         "warnings": route_result["warnings"],
+        # Skip-aware bilgileri
+        "total_stops": len(all_stops),
+        "handled_count": len(handled_customer_ids),
+        "remaining_count": len(stops),
+        # Incident'lar
+        "incidents": incidents_result["incidents"],
+        "incidents_available": incidents_result["available"],
     }
