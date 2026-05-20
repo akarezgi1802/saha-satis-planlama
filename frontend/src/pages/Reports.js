@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import api from "../api";
 
 const STATUS_MAP = { draft: "Taslak", approved: "Onaylandi", paid: "Odendi", cancelled: "Iptal" };
@@ -22,7 +22,7 @@ export default function Reports() {
   // Fatura dialog
   const [showDialog, setShowDialog] = useState(false);
   const [showDetail, setShowDetail] = useState(null);
-  const [formMode, setFormMode] = useState("quick"); // quick veya detailed
+  const [formMode, setFormMode] = useState("quick");
 
   // Fatura formu
   const [formCustomer, setFormCustomer] = useState("");
@@ -36,11 +36,42 @@ export default function Reports() {
   const isMobile = window.innerWidth <= 768;
 
   useEffect(() => {
-    api.get("/auth/users").then((r) => setUsers(r.data)).catch(() => {});
-    api.get("/customers").then((r) => setCustomers(r.data)).catch(() => {});
+    api.get("/auth/users").then((r) => setUsers(r.data || [])).catch(() => {});
+    api.get("/customers").then((r) => setCustomers(r.data || [])).catch(() => {});
   }, []);
 
-  const buildParams = () => {
+  const loadData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const p = {};
+      if (period) p.period = period;
+      if (startDate && !period) p.start_date = startDate;
+      if (endDate && !period) p.end_date = endDate;
+      if (filterUser) p.user_id = filterUser;
+      if (filterCustomer) p.customer_id = filterCustomer;
+      if (filterStatus) p.status = filterStatus;
+
+      const [invRes, sumRes] = await Promise.all([
+        api.get("/reports/invoices", { params: p }),
+        api.get("/reports/summary", { params: p }),
+      ]);
+      setInvoices(invRes.data || []);
+      setSummary(sumRes.data || null);
+    } catch (err) {
+      console.error("Rapor yuklenemedi:", err);
+      setInvoices([]);
+      setSummary(null);
+    }
+    setLoading(false);
+  }, [period, startDate, endDate, filterUser, filterCustomer, filterStatus]);
+
+  useEffect(() => { loadData(); }, [loadData]);
+
+  const handleCustomDateSearch = () => {
+    loadData();
+  };
+
+  const getExportParams = () => {
     const p = {};
     if (period) p.period = period;
     if (startDate && !period) p.start_date = startDate;
@@ -51,37 +82,14 @@ export default function Reports() {
     return p;
   };
 
-  const loadData = async () => {
-    setLoading(true);
-    const params = buildParams();
-    try {
-      const [invRes, sumRes] = await Promise.all([
-        api.get("/reports/invoices", { params }),
-        api.get("/reports/summary", { params }),
-      ]);
-      setInvoices(invRes.data);
-      setSummary(sumRes.data);
-    } catch (err) {
-      console.error(err);
-    }
-    setLoading(false);
-  };
-
-  useEffect(() => { loadData(); }, [period, filterUser, filterCustomer, filterStatus]);
-
-  const handleCustomDateSearch = () => {
-    setPeriod("");
-    loadData();
-  };
-
   const handleExportExcel = () => {
-    const params = new URLSearchParams(buildParams());
+    const params = new URLSearchParams(getExportParams());
     const token = localStorage.getItem("token");
     window.open(`${api.defaults.baseURL}/reports/export/excel?${params}&token=${token}`, "_blank");
   };
 
   const handleExportPDF = () => {
-    const params = new URLSearchParams(buildParams());
+    const params = new URLSearchParams(getExportParams());
     const token = localStorage.getItem("token");
     window.open(`${api.defaults.baseURL}/reports/export/pdf?${params}&token=${token}`, "_blank");
   };
