@@ -17,6 +17,7 @@ import Tasks from "./pages/Tasks";
 import Reports from "./pages/Reports";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
+import ErrorBoundary from "./components/ErrorBoundary";
 import "./App.css";
 
 function ProtectedLayout({ user, onLogout, children }) {
@@ -190,6 +191,7 @@ function App() {
           element={
             isLoggedIn ? (
               <ProtectedLayout user={user} onLogout={() => setUser(null)}>
+                <ErrorBoundary>
                 <Routes>
                   <Route path="/profile" element={<Profile user={user} onUserUpdate={setUser} />} />
                   {isAdmin && (
@@ -216,6 +218,7 @@ function App() {
                   )}
                   <Route path="*" element={<Navigate to="/" />} />
                 </Routes>
+                </ErrorBoundary>
               </ProtectedLayout>
             ) : (
               <Navigate to="/login" />
