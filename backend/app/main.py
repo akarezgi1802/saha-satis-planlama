@@ -10,7 +10,7 @@ from sqlalchemy import text
 
 from .database import engine, Base, SessionLocal
 from .models import Plan
-from .routers import auth, customers, sales_reps, plans, settings, performance, announcements, ai, campaigns, install, routing, tasks, admin_demo
+from .routers import auth, customers, sales_reps, plans, settings, performance, announcements, ai, campaigns, install, routing, tasks, admin_demo, reports
 
 Base.metadata.create_all(bind=engine)
 
@@ -25,6 +25,8 @@ def _run_migrations():
         "ALTER TABLE sales_visits ADD COLUMN IF NOT EXISTS check_in_lat FLOAT NULL",
         "ALTER TABLE sales_visits ADD COLUMN IF NOT EXISTS check_in_lng FLOAT NULL",
         "ALTER TABLE sales_visits ADD COLUMN IF NOT EXISTS distance_from_customer_m FLOAT NULL",
+        "ALTER TABLE customers ADD COLUMN IF NOT EXISTS tax_number VARCHAR(30) NULL",
+        "ALTER TABLE customers ADD COLUMN IF NOT EXISTS tax_office VARCHAR(100) NULL",
     ]
     with engine.connect() as conn:
         for sql in migrations:
@@ -81,6 +83,7 @@ app.include_router(install.router)
 app.include_router(routing.router)
 app.include_router(tasks.router)
 app.include_router(admin_demo.router)
+app.include_router(reports.router)
 
 
 # ── Frontend static dosyaları (deploy modunda) ──

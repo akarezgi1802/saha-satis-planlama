@@ -13,6 +13,8 @@ class CustomerCreate(BaseModel):
     phone: str | None = None
     address: str | None = None
     notes: str | None = None
+    tax_number: str | None = None
+    tax_office: str | None = None
 
 
 class CustomerUpdate(BaseModel):
@@ -25,6 +27,8 @@ class CustomerUpdate(BaseModel):
     phone: str | None = None
     address: str | None = None
     notes: str | None = None
+    tax_number: str | None = None
+    tax_office: str | None = None
 
 
 class CustomerOut(BaseModel):
@@ -38,6 +42,8 @@ class CustomerOut(BaseModel):
     phone: str | None
     address: str | None
     notes: str | None
+    tax_number: str | None = None
+    tax_office: str | None = None
     created_at: datetime
 
     model_config = {"from_attributes": True}
@@ -250,6 +256,65 @@ class UserUpdateByAdmin(BaseModel):
     is_active: int | None = None
     password: str | None = None
     monthly_target: float | None = None
+
+
+# ─── Invoice ─────────────────────────────
+class InvoiceItemCreate(BaseModel):
+    product_name: str
+    quantity: float = 1
+    unit: str | None = "adet"
+    unit_price: float = 0
+
+
+class InvoiceItemOut(BaseModel):
+    id: int
+    product_name: str
+    quantity: float
+    unit: str | None
+    unit_price: float
+    line_total: float
+
+    model_config = {"from_attributes": True}
+
+
+class InvoiceCreate(BaseModel):
+    customer_id: int
+    invoice_date: date | None = None
+    tax_rate: float = 20
+    notes: str | None = None
+    items: list[InvoiceItemCreate] = []
+    quick_total: float | None = None
+
+
+class InvoiceUpdate(BaseModel):
+    status: str | None = None
+    notes: str | None = None
+    tax_rate: float | None = None
+    items: list[InvoiceItemCreate] | None = None
+    quick_total: float | None = None
+
+
+class InvoiceOut(BaseModel):
+    id: int
+    invoice_no: str
+    user_id: int
+    user_name: str | None = None
+    customer_id: int
+    customer_name: str | None = None
+    customer_tax_number: str | None = None
+    customer_tax_office: str | None = None
+    customer_address: str | None = None
+    invoice_date: date
+    subtotal: float
+    tax_rate: float
+    tax_amount: float
+    total: float
+    status: str
+    notes: str | None
+    items: list[InvoiceItemOut] = []
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
 
 
 # ─── Campaign ────────────────────────────
