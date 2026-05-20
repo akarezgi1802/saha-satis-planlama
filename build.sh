@@ -6,7 +6,7 @@ set -e
 echo "==> Frontend build başlıyor..."
 cd frontend
 npm install --legacy-peer-deps
-CI=false npm run build
+REACT_APP_API_URL=/api CI=false npm run build
 cd ..
 echo "==> Frontend build tamam"
 
