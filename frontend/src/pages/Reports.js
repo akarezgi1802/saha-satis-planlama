@@ -23,8 +23,8 @@ function safeDate(v) {
 export default function Reports() {
   const [invoices, setInvoices] = useState([]);
   const [summary, setSummary] = useState(null);
-  const [customers, setCustomers] = useState([]);
-  const [users, setUsers] = useState([]);
+  const [customersList, setCustomersList] = useState([]);
+  const [usersList, setUsersList] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
@@ -58,12 +58,18 @@ export default function Reports() {
     return () => window.removeEventListener("resize", check);
   }, []);
 
+  // Güvenli dizi dönüştürme
+  const customers = Array.isArray(customersList) ? customersList : [];
+  const users = Array.isArray(usersList) ? usersList : [];
+
   useEffect(() => {
     api.get("/auth/users").then((r) => {
-      if (Array.isArray(r.data)) setUsers(r.data);
+      const d = r.data;
+      setUsersList(Array.isArray(d) ? d : (d && d.items ? d.items : []));
     }).catch(() => {});
     api.get("/customers").then((r) => {
-      if (Array.isArray(r.data)) setCustomers(r.data);
+      const d = r.data;
+      setCustomersList(Array.isArray(d) ? d : (d && d.items ? d.items : []));
     }).catch(() => {});
   }, []);
 
@@ -276,7 +282,7 @@ export default function Reports() {
               <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 4 }}>Satis Temsilcisi</div>
               <select className="form-input" value={filterUser} onChange={(e) => setFilterUser(e.target.value)} style={{ width: 160 }}>
                 <option value="">Tumu</option>
-                {Array.isArray(users) && users.filter((u) => u && u.role === "sales_rep").map((u) => (
+                {users.filter((u) => u && u.role === "sales_rep").map((u) => (
                   <option key={u.id} value={u.id}>{u.full_name || "?"}</option>
                 ))}
               </select>
@@ -285,7 +291,7 @@ export default function Reports() {
               <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 4 }}>Musteri</div>
               <select className="form-input" value={filterCustomer} onChange={(e) => setFilterCustomer(e.target.value)} style={{ width: 160 }}>
                 <option value="">Tumu</option>
-                {Array.isArray(customers) && customers.map((c) => (
+                {customers.map((c) => (
                   <option key={c.id} value={c.id}>{c.name || "?"}</option>
                 ))}
               </select>
@@ -317,11 +323,11 @@ export default function Reports() {
         <div className="panel">
           <div className="panel-header">
             <h3>Faturalar</h3>
-            <span className="panel-info">{Array.isArray(invoices) ? invoices.length : 0} kayit</span>
+            <span className="panel-info">{invoices.length} kayit</span>
           </div>
           {loading ? (
             <div className="loading"><div className="spinner" /></div>
-          ) : !Array.isArray(invoices) || invoices.length === 0 ? (
+          ) : invoices.length === 0 ? (
             <div className="empty-state"><p>Fatura bulunamadi. Filtrelerinizi degistirin veya yeni fatura olusturun.</p></div>
           ) : isMobile ? (
             <div style={{ padding: 12 }}>
@@ -540,7 +546,7 @@ export default function Reports() {
                 <label>Musteri</label>
                 <select className="form-input" value={formCustomer} onChange={(e) => setFormCustomer(e.target.value)}>
                   <option value="">Musteri Secin...</option>
-                  {Array.isArray(customers) && customers.map((c) => (
+                  {customers.map((c) => (
                     <option key={c.id} value={c.id}>{c.name || "?"}</option>
                   ))}
                 </select>
