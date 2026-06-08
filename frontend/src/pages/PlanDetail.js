@@ -544,13 +544,17 @@ function ChartsTab({ results, users = [] }) {
         <h3>ST Bazlı Müşteri Sayısı</h3>
         <ResponsiveContainer width="100%" height={window.innerWidth <= 768 ? 200 : 280}>
           <BarChart data={clusterChartData}>
+            <defs>
+              <linearGradient id="planBarGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#6366f1" stopOpacity={1} />
+                <stop offset="100%" stopColor="#6366f1" stopOpacity={0.5} />
+              </linearGradient>
+            </defs>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--border-light)" />
             <XAxis dataKey="code" tick={{ fontSize: 12 }} />
             <YAxis tick={{ fontSize: 12 }} />
             <Tooltip content={<RegionTooltip suffix="müşteri" />} />
-            <Bar dataKey="count" name="Müşteri" radius={[6, 6, 0, 0]}>
-              {clusterChartData.map((d) => <Cell key={d.cluster_index} fill={COLORS[d.cluster_index % COLORS.length]} />)}
-            </Bar>
+            <Bar dataKey="count" name="Müşteri" fill="url(#planBarGrad)" radius={[6, 6, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
       </div>
