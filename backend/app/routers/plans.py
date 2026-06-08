@@ -377,7 +377,7 @@ def _run_full_pipeline(plan_id: int):
                 customer_indices=day_custs,
                 x_coords=x, y_coords=y,
                 depot_x=depot_x, depot_y=depot_y,
-                time_limit=1800,
+                time_limit=900,
             )
 
             arrival_times = route_result.get("arrival_times", {})
