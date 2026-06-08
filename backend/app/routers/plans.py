@@ -14,7 +14,7 @@ from ..schemas import (
     ClusterAssignmentOut, WeeklyAssignmentOut, DailyRouteOut, RouteStopOut
 )
 from ..auth import get_current_user
-from ..services.clustering import run_simulated_annealing
+from ..services.clustering_milp import run_milp_clustering
 from ..services.assignment import run_weekly_assignment
 from ..services.routing import solve_route
 
@@ -271,13 +271,12 @@ def _run_full_pipeline(plan_id: int):
         # ── ADIM 1: KÜMELEME ──
         _update_status(db, plan_id, "clustering")
 
-        clustering_result = run_simulated_annealing(
+        clustering_result = run_milp_clustering(
             x_coords=x, y_coords=y, revenue=rev, visit_freq=vis,
             n_st=plan.st_count,
             revenue_tol=REVENUE_TOL,
             visit_tol=VISIT_TOL,
-            num_runs=5,
-            time_limit=10800,
+            time_limit=14400,
         )
 
         if _is_cancelled(db, plan_id):
