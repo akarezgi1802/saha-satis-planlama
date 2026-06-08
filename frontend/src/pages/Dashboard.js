@@ -11,8 +11,8 @@ import "leaflet/dist/leaflet.css";
 import api from "../api";
 
 const COLORS = ["#6366f1", "#ef4444", "#10b981", "#f59e0b", "#3b82f6", "#8b5cf6", "#ec4899", "#14b8a6", "#f97316", "#06b6d4", "#84cc16", "#e11d48"];
-// Grafikler için pastel (göz yormayan) tonlar — UI öğeleri (avatar/rozet/harita) COLORS kullanır
-const CHART_COLORS = ["#a5b4fc", "#fca5a5", "#6ee7b7", "#fcd34d", "#93c5fd", "#c4b5fd", "#f9a8d4", "#5eead4", "#fdba74", "#67e8f9", "#bef264", "#fda4af"];
+// Pasta grafiği için tek renk ailesi (açıktan koyuya) — sade, göz yormayan
+const PIE_SHADES = ["#c7d2fe", "#a5b4fc", "#818cf8", "#6366f1", "#4f46e5", "#4338ca", "#3730a3", "#312e81", "#b4c6fc", "#8da2fb", "#6875f5", "#5145cd"];
 const DAY_SHORT = { 1: "Pzt", 2: "Salı", 3: "Çar", 4: "Per", 5: "Cum", 6: "Cmt" };
 
 const depotIcon = L.divIcon({
@@ -466,10 +466,10 @@ export default function Dashboard() {
                 <ResponsiveContainer width="100%" height={window.innerWidth <= 768 ? 250 : 380}>
                   <PieChart>
                     <defs>
-                      {CHART_COLORS.map((c, i) => (
+                      {PIE_SHADES.map((c, i) => (
                         <linearGradient key={i} id={`pie-grad-${i}`} x1="0" y1="0" x2="0" y2="1">
                           <stop offset="0%" stopColor={c} stopOpacity={1} />
-                          <stop offset="100%" stopColor={c} stopOpacity={0.75} />
+                          <stop offset="100%" stopColor={c} stopOpacity={0.8} />
                         </linearGradient>
                       ))}
                     </defs>
@@ -485,7 +485,7 @@ export default function Dashboard() {
                       strokeWidth={2}
                       stroke="#fff"
                     >
-                      {clusterData.map((d) => <Cell key={d.cluster_index} fill={`url(#pie-grad-${d.cluster_index % CHART_COLORS.length})`} />)}
+                      {clusterData.map((d) => <Cell key={d.cluster_index} fill={`url(#pie-grad-${d.cluster_index % PIE_SHADES.length})`} />)}
                     </Pie>
                     <Tooltip content={<PieTooltip />} />
                   </PieChart>
@@ -504,17 +504,15 @@ export default function Dashboard() {
                   <BarChart data={clusterData} margin={{ top: 20, right: 24, left: 8, bottom: 8 }}>
                     <defs>
                       <linearGradient id="barGradRevenue" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#6366f1" stopOpacity={1} />
-                        <stop offset="100%" stopColor="#6366f1" stopOpacity={0.5} />
+                        <stop offset="0%" stopColor="#818cf8" stopOpacity={0.95} />
+                        <stop offset="100%" stopColor="#818cf8" stopOpacity={0.35} />
                       </linearGradient>
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
                     <XAxis dataKey="code" tick={{ fontSize: 12, fill: "#64748b" }} axisLine={false} tickLine={false} />
                     <YAxis tick={{ fontSize: 11, fill: "#94a3b8" }} tickFormatter={fmtCurrency} axisLine={false} tickLine={false} />
                     <Tooltip content={<CustomTooltip suffix="₺" />} cursor={{ fill: "#f8fafc" }} />
-                    <Bar dataKey="revenue" name="Ciro" radius={[8, 8, 0, 0]} barSize={window.innerWidth <= 768 ? 18 : 36}>
-                      {clusterData.map((d) => <Cell key={d.cluster_index} fill={CHART_COLORS[d.cluster_index % CHART_COLORS.length]} />)}
-                    </Bar>
+                    <Bar dataKey="revenue" name="Ciro" fill="url(#barGradRevenue)" radius={[8, 8, 0, 0]} barSize={window.innerWidth <= 768 ? 18 : 36} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -528,17 +526,15 @@ export default function Dashboard() {
                   <BarChart data={clusterData} margin={{ top: 20, right: 24, left: 8, bottom: 8 }}>
                     <defs>
                       <linearGradient id="barGradCustomer" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#ef4444" stopOpacity={1} />
-                        <stop offset="100%" stopColor="#ef4444" stopOpacity={0.5} />
+                        <stop offset="0%" stopColor="#2dd4bf" stopOpacity={0.95} />
+                        <stop offset="100%" stopColor="#2dd4bf" stopOpacity={0.35} />
                       </linearGradient>
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
                     <XAxis dataKey="code" tick={{ fontSize: 12, fill: "#64748b" }} axisLine={false} tickLine={false} />
                     <YAxis tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} allowDecimals={false} />
                     <Tooltip content={<CustomTooltip suffix="müşteri" />} cursor={{ fill: "#f8fafc" }} />
-                    <Bar dataKey="count" name="Müşteri" radius={[8, 8, 0, 0]} barSize={window.innerWidth <= 768 ? 18 : 36}>
-                      {clusterData.map((d) => <Cell key={d.cluster_index} fill={CHART_COLORS[d.cluster_index % CHART_COLORS.length]} />)}
-                    </Bar>
+                    <Bar dataKey="count" name="Müşteri" fill="url(#barGradCustomer)" radius={[8, 8, 0, 0]} barSize={window.innerWidth <= 768 ? 18 : 36} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -605,17 +601,21 @@ export default function Dashboard() {
             <div className="panel" style={{ marginTop: 16, padding: 0 }}>
               <div style={{ padding: "16px 20px 0" }}>
                 <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: "#1e293b" }}>ST Bazlı Ziyaret Sayısı</h3>
-                <p style={{ margin: "4px 0 0", fontSize: 12, color: "#94a3b8" }}>Her satış temsilcisinin (bölgesinin) haftalık toplam müşteri ziyareti — bölge renginde</p>
+                <p style={{ margin: "4px 0 0", fontSize: 12, color: "#94a3b8" }}>Her satış temsilcisinin (bölgesinin) haftalık toplam müşteri ziyareti</p>
               </div>
               <ResponsiveContainer width="100%" height={window.innerWidth <= 768 ? 220 : 320}>
                 <BarChart data={stVisitData} margin={{ top: 20, right: 24, left: 8, bottom: 8 }}>
+                  <defs>
+                    <linearGradient id="barGradVisit" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#fbbf24" stopOpacity={0.95} />
+                      <stop offset="100%" stopColor="#fbbf24" stopOpacity={0.35} />
+                    </linearGradient>
+                  </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
                   <XAxis dataKey="code" tick={{ fontSize: 12, fill: "#64748b" }} axisLine={false} tickLine={false} />
                   <YAxis tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} allowDecimals={false} />
                   <Tooltip content={<CustomTooltip suffix="müşteri" />} cursor={{ fill: "#f8fafc" }} />
-                  <Bar dataKey="visits" name="Ziyaret" radius={[6, 6, 0, 0]} barSize={window.innerWidth <= 768 ? 22 : 44}>
-                    {stVisitData.map((d) => <Cell key={d.cluster_index} fill={CHART_COLORS[d.cluster_index % CHART_COLORS.length]} />)}
-                  </Bar>
+                  <Bar dataKey="visits" name="Ziyaret" fill="url(#barGradVisit)" radius={[6, 6, 0, 0]} barSize={window.innerWidth <= 768 ? 22 : 44} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
