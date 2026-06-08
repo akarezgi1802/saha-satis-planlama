@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   PieChart, Pie, Cell, ResponsiveContainer,
   AreaChart, Area,
 } from "recharts";
@@ -114,13 +114,15 @@ function DemoDataButton() {
 
 function CustomTooltip({ active, payload, label, suffix, valueKey }) {
   if (!active || !payload?.length) return null;
+  const repName = payload[0]?.payload?.repName;
   return (
     <div style={{
       background: "#fff", borderRadius: 10, padding: "10px 14px",
       boxShadow: "0 4px 20px rgba(0,0,0,0.12)", border: "1px solid #e2e8f0",
       fontSize: 13,
     }}>
-      <div style={{ fontWeight: 600, color: "#334155", marginBottom: 4 }}>{label}</div>
+      <div style={{ fontWeight: 600, color: "#334155", marginBottom: repName ? 0 : 4 }}>{label}</div>
+      {repName && <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 4 }}>{repName}</div>}
       {payload.map((p, i) => (
         <div key={i} style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 2 }}>
           <span style={{ width: 8, height: 8, borderRadius: "50%", background: p.color, flexShrink: 0 }} />
@@ -138,6 +140,7 @@ function CustomTooltip({ active, payload, label, suffix, valueKey }) {
 function PieTooltip({ active, payload }) {
   if (!active || !payload?.length) return null;
   const d = payload[0];
+  const p = d.payload || {};
   return (
     <div style={{
       background: "#fff", borderRadius: 10, padding: "10px 14px",
@@ -145,9 +148,10 @@ function PieTooltip({ active, payload }) {
       fontSize: 13,
     }}>
       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-        <span style={{ width: 10, height: 10, borderRadius: "50%", background: d.payload.fill }} />
-        <span style={{ fontWeight: 600, color: "#334155" }}>{d.name}</span>
+        <span style={{ width: 10, height: 10, borderRadius: "50%", background: p.fill }} />
+        <span style={{ fontWeight: 600, color: "#334155" }}>{p.region || d.name}</span>
       </div>
+      {p.repName && <div style={{ marginTop: 2, fontSize: 12, color: "#64748b" }}>{p.repName}</div>}
       <div style={{ marginTop: 4, color: "#0f172a", fontWeight: 700 }}>
         {d.value} müşteri
       </div>
@@ -230,11 +234,18 @@ export default function Dashboard() {
   const clusterData = results ? (() => {
     const map = {};
     results.clusters.forEach((c) => {
-      if (!map[c.cluster_index]) map[c.cluster_index] = { name: regionLabel(c.cluster_index), count: 0, revenue: 0 };
-      map[c.cluster_index].count++;
-      map[c.cluster_index].revenue += c.monthly_revenue;
+      const ci = c.cluster_index;
+      if (!map[ci]) map[ci] = {
+        cluster_index: ci,
+        region: `Bölge ${ci + 1}`,   // grafik ekseni / dilim etiketi
+        code: `ST${ci + 1}`,          // ST kodu
+        repName: regionLabel(ci),     // hover'da görünen personel adı
+        count: 0, revenue: 0,
+      };
+      map[ci].count++;
+      map[ci].revenue += c.monthly_revenue;
     });
-    return Object.values(map);
+    return Object.values(map).sort((a, b) => a.cluster_index - b.cluster_index);
   })() : [];
 
   const dayData = results ? (() => {
@@ -250,19 +261,15 @@ export default function Dashboard() {
     return ordered.map((d) => map[d]);
   })() : [];
 
-  const stList = results ? [...new Set(results.clusters.map((c) => c.cluster_index))].sort() : [];
+  const stList = results ? [...new Set(results.clusters.map((c) => c.cluster_index))].sort((a, b) => a - b) : [];
 
-  const stDayData = results ? (() => {
-    const ordered = [1, 2, 3, 4, 5, 6];
-    return ordered.map((day) => {
-      const row = { name: DAY_SHORT[day] };
-      stList.forEach((ci) => {
-        const route = results.routes.find((r) => r.cluster_index === ci && r.day_of_week === day);
-        row[`ST ${ci}`] = route ? route.customer_count : 0;
-      });
-      return row;
-    });
-  })() : [];
+  // ST bazlı toplam haftalık ziyaret (her ST tek sütun, bölge renginde)
+  const stVisitData = results ? stList.map((ci) => {
+    const visits = results.routes
+      .filter((r) => r.cluster_index === ci)
+      .reduce((s, r) => s + (r.customer_count || 0), 0);
+    return { cluster_index: ci, code: `ST${ci + 1}`, region: `Bölge ${ci + 1}`, repName: regionLabel(ci), visits };
+  }) : [];
 
   const mapCenter = results && results.clusters.length > 0
     ? [results.clusters.reduce((s, c) => s + c.x, 0) / results.clusters.length, results.clusters.reduce((s, c) => s + c.y, 0) / results.clusters.length]
@@ -467,7 +474,7 @@ export default function Dashboard() {
                     <Pie
                       data={clusterData}
                       dataKey="count"
-                      nameKey="name"
+                      nameKey="region"
                       cx="50%" cy="50%"
                       outerRadius={window.innerWidth <= 768 ? 75 : 120} innerRadius={window.innerWidth <= 768 ? 35 : 60}
                       paddingAngle={2}
@@ -476,7 +483,7 @@ export default function Dashboard() {
                       strokeWidth={2}
                       stroke="#fff"
                     >
-                      {clusterData.map((_, i) => <Cell key={i} fill={`url(#pie-grad-${i})`} />)}
+                      {clusterData.map((d) => <Cell key={d.cluster_index} fill={`url(#pie-grad-${d.cluster_index % COLORS.length})`} />)}
                     </Pie>
                     <Tooltip content={<PieTooltip />} />
                   </PieChart>
@@ -500,10 +507,12 @@ export default function Dashboard() {
                       </linearGradient>
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-                    <XAxis dataKey="name" tick={{ fontSize: 12, fill: "#64748b" }} axisLine={false} tickLine={false} />
+                    <XAxis dataKey="code" tick={{ fontSize: 12, fill: "#64748b" }} axisLine={false} tickLine={false} />
                     <YAxis tick={{ fontSize: 11, fill: "#94a3b8" }} tickFormatter={fmtCurrency} axisLine={false} tickLine={false} />
                     <Tooltip content={<CustomTooltip suffix="₺" />} cursor={{ fill: "#f8fafc" }} />
-                    <Bar dataKey="revenue" name="Ciro" fill="url(#barGradRevenue)" radius={[8, 8, 0, 0]} barSize={window.innerWidth <= 768 ? 18 : 36} />
+                    <Bar dataKey="revenue" name="Ciro" radius={[8, 8, 0, 0]} barSize={window.innerWidth <= 768 ? 18 : 36}>
+                      {clusterData.map((d) => <Cell key={d.cluster_index} fill={COLORS[d.cluster_index % COLORS.length]} />)}
+                    </Bar>
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -522,10 +531,12 @@ export default function Dashboard() {
                       </linearGradient>
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-                    <XAxis dataKey="name" tick={{ fontSize: 12, fill: "#64748b" }} axisLine={false} tickLine={false} />
+                    <XAxis dataKey="code" tick={{ fontSize: 12, fill: "#64748b" }} axisLine={false} tickLine={false} />
                     <YAxis tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} allowDecimals={false} />
                     <Tooltip content={<CustomTooltip suffix="müşteri" />} cursor={{ fill: "#f8fafc" }} />
-                    <Bar dataKey="count" name="Müşteri" fill="url(#barGradCustomer)" radius={[8, 8, 0, 0]} barSize={window.innerWidth <= 768 ? 18 : 36} />
+                    <Bar dataKey="count" name="Müşteri" radius={[8, 8, 0, 0]} barSize={window.innerWidth <= 768 ? 18 : 36}>
+                      {clusterData.map((d) => <Cell key={d.cluster_index} fill={COLORS[d.cluster_index % COLORS.length]} />)}
+                    </Bar>
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -591,19 +602,18 @@ export default function Dashboard() {
             {/* --- ROW 4: ST Daily Visit Count --- */}
             <div className="panel" style={{ marginTop: 16, padding: 0 }}>
               <div style={{ padding: "16px 20px 0" }}>
-                <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: "#1e293b" }}>ST Bazlı Günlük Ziyaret Sayısı</h3>
-                <p style={{ margin: "4px 0 0", fontSize: 12, color: "#94a3b8" }}>Her satış temsilcisinin günlere göre ziyaret ettiği müşteri sayısı</p>
+                <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: "#1e293b" }}>ST Bazlı Ziyaret Sayısı</h3>
+                <p style={{ margin: "4px 0 0", fontSize: 12, color: "#94a3b8" }}>Her satış temsilcisinin (bölgesinin) haftalık toplam müşteri ziyareti — bölge renginde</p>
               </div>
               <ResponsiveContainer width="100%" height={window.innerWidth <= 768 ? 220 : 320}>
-                <BarChart data={stDayData} margin={{ top: 20, right: 24, left: 8, bottom: 8 }}>
+                <BarChart data={stVisitData} margin={{ top: 20, right: 24, left: 8, bottom: 8 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-                  <XAxis dataKey="name" tick={{ fontSize: 12, fill: "#64748b" }} axisLine={false} tickLine={false} />
+                  <XAxis dataKey="code" tick={{ fontSize: 12, fill: "#64748b" }} axisLine={false} tickLine={false} />
                   <YAxis tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} allowDecimals={false} />
-                  <Tooltip content={<CustomTooltip suffix="müşteri" />} />
-                  <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12, paddingTop: 8 }} />
-                  {stList.map((ci, i) => (
-                    <Bar key={ci} dataKey={`ST ${ci}`} name={regionLabel(ci)} fill={COLORS[ci % COLORS.length]} radius={[4, 4, 0, 0]} barSize={window.innerWidth <= 768 ? 14 : 28} />
-                  ))}
+                  <Tooltip content={<CustomTooltip suffix="müşteri" />} cursor={{ fill: "#f8fafc" }} />
+                  <Bar dataKey="visits" name="Ziyaret" radius={[6, 6, 0, 0]} barSize={window.innerWidth <= 768 ? 22 : 44}>
+                    {stVisitData.map((d) => <Cell key={d.cluster_index} fill={COLORS[d.cluster_index % COLORS.length]} />)}
+                  </Bar>
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -618,6 +628,8 @@ export default function Dashboard() {
                 <table>
                   <thead>
                     <tr>
+                      <th>ST</th>
+                      <th>Satış Temsilcisi</th>
                       <th>Bölge</th>
                       <th>Müşteri</th>
                       <th>Toplam Ciro</th>
@@ -652,9 +664,16 @@ export default function Dashboard() {
                               background: COLORS[ci % COLORS.length], color: "#fff",
                               fontSize: 12, fontWeight: 700, marginRight: 8,
                             }}>
-                              {ci}
+                              {ci + 1}
                             </span>
-                            ST {ci}
+                            ST{ci + 1}
+                          </td>
+                          <td className="cell-bold">{regionLabel(ci)}</td>
+                          <td>
+                            <span className="badge-freq" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                              <span style={{ width: 10, height: 10, borderRadius: "50%", background: COLORS[ci % COLORS.length], border: "1px solid rgba(0,0,0,0.1)" }} />
+                              Bölge {ci + 1}
+                            </span>
                           </td>
                           <td className="cell-mono">{custs.length}</td>
                           <td className="cell-mono">{Number(rev).toLocaleString("tr-TR")} ₺</td>
