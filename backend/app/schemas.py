@@ -212,6 +212,13 @@ class SalesVisitOut(BaseModel):
     sale_amount: float
     visited: int
     notes: str | None
+    check_in_at: datetime | None = None
+    check_out_at: datetime | None = None
+    check_in_lat: float | None = None
+    check_in_lng: float | None = None
+    check_out_lat: float | None = None
+    check_out_lng: float | None = None
+    distance_from_customer_m: float | None = None
     created_at: datetime
 
     model_config = {"from_attributes": True}
@@ -291,6 +298,61 @@ class CampaignOut(BaseModel):
     author_id: int
     author_name: str | None = None
     is_active: int
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+# ─── Fleet / Vehicle ────────────────────────
+class VehicleTypeCreate(BaseModel):
+    name: str
+    fuel_type: str = "diesel"
+    fuel_consumption_l_per_100km: float = 7.5
+    is_default: bool = False
+
+
+class VehicleTypeUpdate(BaseModel):
+    name: str | None = None
+    fuel_type: str | None = None
+    fuel_consumption_l_per_100km: float | None = None
+    is_default: bool | None = None
+
+
+class VehicleTypeOut(BaseModel):
+    id: int
+    name: str
+    fuel_type: str
+    fuel_consumption_l_per_100km: float
+    is_default: bool
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class VehicleCreate(BaseModel):
+    plate_number: str
+    vehicle_type_id: int
+    assigned_user_id: int | None = None
+    notes: str | None = None
+
+
+class VehicleUpdate(BaseModel):
+    plate_number: str | None = None
+    vehicle_type_id: int | None = None
+    assigned_user_id: int | None = None
+    notes: str | None = None
+
+
+class VehicleOut(BaseModel):
+    id: int
+    plate_number: str
+    vehicle_type_id: int
+    vehicle_type_name: str | None = None
+    fuel_type: str | None = None
+    fuel_consumption: float | None = None
+    assigned_user_id: int | None
+    assigned_user_name: str | None = None
+    notes: str | None
     created_at: datetime
 
     model_config = {"from_attributes": True}

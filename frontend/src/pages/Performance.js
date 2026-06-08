@@ -179,8 +179,11 @@ export default function Performance() {
                   <table>
                     <thead>
                       <tr>
-                        <th>Müşteri</th>
-                        <th>Satış</th>
+                        <th>Musteri</th>
+                        <th>Satis</th>
+                        <th>Giris</th>
+                        <th>Cikis</th>
+                        <th>Sure</th>
                         <th>Not</th>
                         <th></th>
                       </tr>
@@ -189,7 +192,16 @@ export default function Performance() {
                       {todayVisits.map((v) => (
                         <tr key={v.id}>
                           <td className="cell-bold">{v.customer_name}</td>
-                          <td className="cell-mono">{Number(v.sale_amount).toLocaleString("tr-TR")} ₺</td>
+                          <td className="cell-mono">{Number(v.sale_amount).toLocaleString("tr-TR")} TL</td>
+                          <td className="cell-mono" style={{ fontSize: 11 }}>
+                            {v.check_in_at ? new Date(v.check_in_at).toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" }) : "—"}
+                          </td>
+                          <td className="cell-mono" style={{ fontSize: 11 }}>
+                            {v.check_out_at ? new Date(v.check_out_at).toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" }) : "—"}
+                          </td>
+                          <td className="cell-mono" style={{ fontSize: 11 }}>
+                            {v.check_in_at && v.check_out_at ? (() => { const mins = Math.round((new Date(v.check_out_at) - new Date(v.check_in_at)) / 60000); return mins < 60 ? `${mins} dk` : `${Math.floor(mins / 60)}sa ${mins % 60}dk`; })() : "—"}
+                          </td>
                           <td className="cell-dim">{v.notes || "—"}</td>
                           <td className="cell-right">
                             <button className="btn btn-negative btn-sm" onClick={() => handleDelete(v.id)}>Sil</button>
@@ -220,8 +232,11 @@ export default function Performance() {
                   <thead>
                     <tr>
                       <th>Tarih</th>
-                      <th>Müşteri</th>
-                      <th>Satış Tutarı</th>
+                      <th>Musteri</th>
+                      <th>Satis Tutari</th>
+                      <th>Giris</th>
+                      <th>Cikis</th>
+                      <th>Sure</th>
                       <th>Not</th>
                       <th></th>
                     </tr>
@@ -231,7 +246,16 @@ export default function Performance() {
                       <tr key={v.id}>
                         <td className="cell-mono">{formatDate(v.visit_date)}</td>
                         <td className="cell-bold">{v.customer_name}</td>
-                        <td className="cell-mono">{Number(v.sale_amount).toLocaleString("tr-TR")} ₺</td>
+                        <td className="cell-mono">{Number(v.sale_amount).toLocaleString("tr-TR")} TL</td>
+                        <td className="cell-mono" style={{ fontSize: 11 }}>
+                          {v.check_in_at ? new Date(v.check_in_at).toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" }) : "—"}
+                        </td>
+                        <td className="cell-mono" style={{ fontSize: 11 }}>
+                          {v.check_out_at ? new Date(v.check_out_at).toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" }) : "—"}
+                        </td>
+                        <td className="cell-mono" style={{ fontSize: 11 }}>
+                          {v.check_in_at && v.check_out_at ? (() => { const mins = Math.round((new Date(v.check_out_at) - new Date(v.check_in_at)) / 60000); return mins < 60 ? `${mins} dk` : `${Math.floor(mins / 60)}sa ${mins % 60}dk`; })() : "—"}
+                        </td>
                         <td className="cell-dim">{v.notes || "—"}</td>
                         <td className="cell-right">
                           <button className="btn btn-negative btn-sm" onClick={() => handleDelete(v.id)}>Sil</button>

@@ -10,7 +10,7 @@ from sqlalchemy import text
 
 from .database import engine, Base, SessionLocal
 from .models import Plan
-from .routers import auth, customers, sales_reps, plans, settings, performance, announcements, ai, campaigns, install, routing, tasks, admin_demo, reports
+from .routers import auth, customers, sales_reps, plans, settings, performance, announcements, ai, campaigns, install, routing, tasks, admin_demo, reports, fleet, carbon
 
 Base.metadata.create_all(bind=engine)
 
@@ -24,9 +24,40 @@ def _run_migrations():
         "ALTER TABLE sales_visits ADD COLUMN IF NOT EXISTS check_out_at TIMESTAMP NULL",
         "ALTER TABLE sales_visits ADD COLUMN IF NOT EXISTS check_in_lat FLOAT NULL",
         "ALTER TABLE sales_visits ADD COLUMN IF NOT EXISTS check_in_lng FLOAT NULL",
+        "ALTER TABLE sales_visits ADD COLUMN IF NOT EXISTS check_out_lat FLOAT NULL",
+        "ALTER TABLE sales_visits ADD COLUMN IF NOT EXISTS check_out_lng FLOAT NULL",
         "ALTER TABLE sales_visits ADD COLUMN IF NOT EXISTS distance_from_customer_m FLOAT NULL",
         "ALTER TABLE customers ADD COLUMN IF NOT EXISTS tax_number VARCHAR(30) NULL",
         "ALTER TABLE customers ADD COLUMN IF NOT EXISTS tax_office VARCHAR(100) NULL",
+        # ── Filo & Karbon tabloları ──
+        """CREATE TABLE IF NOT EXISTS vehicle_types (
+            id SERIAL PRIMARY KEY,
+            name VARCHAR(200) NOT NULL,
+            fuel_type VARCHAR(20) NOT NULL DEFAULT 'diesel',
+            fuel_consumption_l_per_100km FLOAT NOT NULL DEFAULT 7.5,
+            is_default BOOLEAN DEFAULT FALSE,
+            created_at TIMESTAMP DEFAULT NOW()
+        )""",
+        """CREATE TABLE IF NOT EXISTS vehicles (
+            id SERIAL PRIMARY KEY,
+            plate_number VARCHAR(20) UNIQUE NOT NULL,
+            vehicle_type_id INTEGER REFERENCES vehicle_types(id),
+            assigned_user_id INTEGER REFERENCES users(id),
+            notes TEXT,
+            created_at TIMESTAMP DEFAULT NOW()
+        )""",
+        """CREATE TABLE IF NOT EXISTS daily_actual_routes (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER NOT NULL REFERENCES users(id),
+            route_date DATE NOT NULL,
+            actual_distance_km FLOAT NOT NULL DEFAULT 0,
+            actual_time_minutes FLOAT NOT NULL DEFAULT 0,
+            estimated_distance_km FLOAT,
+            estimated_time_minutes FLOAT,
+            co2_emission_kg FLOAT,
+            visit_count INTEGER NOT NULL DEFAULT 0,
+            created_at TIMESTAMP DEFAULT NOW()
+        )""",
     ]
     with engine.connect() as conn:
         for sql in migrations:
@@ -84,6 +115,8 @@ app.include_router(routing.router)
 app.include_router(tasks.router)
 app.include_router(admin_demo.router)
 app.include_router(reports.router)
+app.include_router(fleet.router)
+app.include_router(carbon.router)
 
 
 # ── Frontend static dosyaları (deploy modunda) ──

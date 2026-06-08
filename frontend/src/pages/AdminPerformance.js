@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
-  ResponsiveContainer,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
+  ResponsiveContainer, PieChart, Pie, Cell,
 } from "recharts";
 import api from "../api";
 
@@ -14,6 +14,7 @@ export default function AdminPerformance() {
   const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState("week");
   const [selectedRep, setSelectedRep] = useState(null);
+  const [comparison, setComparison] = useState(null);
 
   const getDateRange = useCallback(() => {
     const today = new Date();
@@ -53,7 +54,13 @@ export default function AdminPerformance() {
 
   useEffect(() => {
     if (tab === "details") loadVisits();
-  }, [tab, loadVisits]);
+    if (tab === "distance" || tab === "carbon") {
+      const { start, end } = getDateRange();
+      api.get("/carbon/comparison", { params: { start_date: start, end_date: end } })
+        .then((r) => setComparison(r.data))
+        .catch(() => setComparison(null));
+    }
+  }, [tab, loadVisits, getDateRange]);
 
   const totalSales = data.reduce((s, d) => s + d.total_sales, 0);
   const totalVisits = data.reduce((s, d) => s + d.visit_count, 0);
@@ -124,9 +131,11 @@ export default function AdminPerformance() {
 
             <div className="tab-bar">
               {[
-                { key: "overview", label: "Genel Bakış" },
-                { key: "comparison", label: "Karşılaştırma" },
-                { key: "details", label: "Detay Kayıtlar" },
+                { key: "overview", label: "Genel Bakis" },
+                { key: "comparison", label: "Karsilastirma" },
+                { key: "details", label: "Detay Kayitlar" },
+                { key: "distance", label: "Mesafe & Sure" },
+                { key: "carbon", label: "Karbon" },
               ].map((t) => (
                 <button key={t.key} className={`tab-item ${tab === t.key ? "active" : ""}`} onClick={() => setTab(t.key)}>
                   {t.label}
@@ -372,9 +381,13 @@ export default function AdminPerformance() {
                       <thead>
                         <tr>
                           <th>Tarih</th>
-                          <th>Satış Temsilcisi</th>
-                          <th>Müşteri</th>
-                          <th>Satış Tutarı</th>
+                          <th>Satis Temsilcisi</th>
+                          <th>Musteri</th>
+                          <th>Satis Tutari</th>
+                          <th>Giris</th>
+                          <th>Cikis</th>
+                          <th>Sure</th>
+                          <th>Mesafe</th>
                           <th>Not</th>
                         </tr>
                       </thead>
@@ -387,7 +400,19 @@ export default function AdminPerformance() {
                             <td className="cell-bold">{v.user_name}</td>
                             <td>{v.customer_name}</td>
                             <td className="cell-mono" style={{ fontWeight: 600 }}>
-                              {Number(v.sale_amount).toLocaleString("tr-TR")} ₺
+                              {Number(v.sale_amount).toLocaleString("tr-TR")} TL
+                            </td>
+                            <td className="cell-mono" style={{ fontSize: 11 }}>
+                              {v.check_in_at ? new Date(v.check_in_at).toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" }) : "—"}
+                            </td>
+                            <td className="cell-mono" style={{ fontSize: 11 }}>
+                              {v.check_out_at ? new Date(v.check_out_at).toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" }) : "—"}
+                            </td>
+                            <td className="cell-mono" style={{ fontSize: 11 }}>
+                              {v.duration_minutes != null ? (v.duration_minutes < 60 ? `${Math.round(v.duration_minutes)} dk` : `${Math.floor(v.duration_minutes / 60)}sa ${Math.round(v.duration_minutes % 60)}dk`) : "—"}
+                            </td>
+                            <td className="cell-mono" style={{ fontSize: 11 }}>
+                              {v.distance_from_customer_m != null ? `${Math.round(v.distance_from_customer_m)}m` : "—"}
                             </td>
                             <td className="cell-dim">{v.notes || "—"}</td>
                           </tr>
@@ -395,6 +420,173 @@ export default function AdminPerformance() {
                       </tbody>
                     </table>
                   </div>
+                )}
+              </div>
+            )}
+
+            {tab === "distance" && (
+              <div className="panel">
+                <div className="panel-header">
+                  <h3>Tahmini vs Gerceklesen Mesafe & Sure</h3>
+                  <span className="panel-info">ST bazli karsilastirma</span>
+                </div>
+                {!comparison || comparison.length === 0 ? (
+                  <div className="empty-state" style={{ padding: 40, textAlign: "center" }}>
+                    <p>Bu donem icin mesafe/sure karsilastirma verisi bulunamadi.</p>
+                  </div>
+                ) : (
+                  <>
+                    <div style={{ overflowX: "auto" }}>
+                      <table>
+                        <thead>
+                          <tr>
+                            <th>Satis Temsilcisi</th>
+                            <th>Tahmini Mesafe</th>
+                            <th>Gercek Mesafe</th>
+                            <th>Mesafe Fark</th>
+                            <th>Tahmini Sure</th>
+                            <th>Gercek Sure</th>
+                            <th>Sure Fark</th>
+                            <th>Ziyaret</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {comparison.map((c, i) => {
+                            const distDiff = c.estimated_distance > 0 ? ((c.actual_distance - c.estimated_distance) / c.estimated_distance * 100) : 0;
+                            const timeDiff = c.estimated_time > 0 ? ((c.actual_time - c.estimated_time) / c.estimated_time * 100) : 0;
+                            return (
+                              <tr key={i}>
+                                <td className="cell-bold">{c.user_name}</td>
+                                <td className="cell-mono">{(c.estimated_distance || 0).toFixed(1)} km</td>
+                                <td className="cell-mono">{(c.actual_distance || 0).toFixed(1)} km</td>
+                                <td className="cell-mono" style={{ color: distDiff > 10 ? "#ef4444" : distDiff < -10 ? "#10b981" : "#64748b", fontWeight: 600 }}>
+                                  {distDiff > 0 ? "+" : ""}{distDiff.toFixed(1)}%
+                                </td>
+                                <td className="cell-mono">{Math.round(c.estimated_time || 0)} dk</td>
+                                <td className="cell-mono">{Math.round(c.actual_time || 0)} dk</td>
+                                <td className="cell-mono" style={{ color: timeDiff > 10 ? "#ef4444" : timeDiff < -10 ? "#10b981" : "#64748b", fontWeight: 600 }}>
+                                  {timeDiff > 0 ? "+" : ""}{timeDiff.toFixed(1)}%
+                                </td>
+                                <td className="cell-mono">{c.visit_count || 0}</td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    <div className="grid-2" style={{ marginTop: 20 }}>
+                      <div className="panel" style={{ border: "none", boxShadow: "none" }}>
+                        <div className="panel-header"><h3>Mesafe Karsilastirmasi (km)</h3></div>
+                        <ResponsiveContainer width="100%" height={300}>
+                          <BarChart data={comparison.map(c => ({ name: (c.user_name || "").split(" ")[0], tahmini: Number((c.estimated_distance || 0).toFixed(1)), gercek: Number((c.actual_distance || 0).toFixed(1)) }))}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                            <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+                            <YAxis tick={{ fontSize: 11 }} />
+                            <Tooltip />
+                            <Legend />
+                            <Bar dataKey="tahmini" name="Tahmini" fill="#6366f1" radius={[4, 4, 0, 0]} />
+                            <Bar dataKey="gercek" name="Gerceklesen" fill="#10b981" radius={[4, 4, 0, 0]} />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                      <div className="panel" style={{ border: "none", boxShadow: "none" }}>
+                        <div className="panel-header"><h3>Sure Karsilastirmasi (dk)</h3></div>
+                        <ResponsiveContainer width="100%" height={300}>
+                          <BarChart data={comparison.map(c => ({ name: (c.user_name || "").split(" ")[0], tahmini: Math.round(c.estimated_time || 0), gercek: Math.round(c.actual_time || 0) }))}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                            <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+                            <YAxis tick={{ fontSize: 11 }} />
+                            <Tooltip />
+                            <Legend />
+                            <Bar dataKey="tahmini" name="Tahmini" fill="#f59e0b" radius={[4, 4, 0, 0]} />
+                            <Bar dataKey="gercek" name="Gerceklesen" fill="#ef4444" radius={[4, 4, 0, 0]} />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+
+            {tab === "carbon" && (
+              <div className="panel">
+                <div className="panel-header">
+                  <h3>Karbon Emisyonu Analizi</h3>
+                  <span className="panel-info">ST bazli CO2 emisyonu</span>
+                </div>
+                {!comparison || comparison.length === 0 ? (
+                  <div className="empty-state" style={{ padding: 40, textAlign: "center" }}>
+                    <p>Bu donem icin karbon emisyonu verisi bulunamadi.</p>
+                  </div>
+                ) : (
+                  <>
+                    <div style={{ overflowX: "auto" }}>
+                      <table>
+                        <thead>
+                          <tr>
+                            <th>Satis Temsilcisi</th>
+                            <th>Arac Tipi</th>
+                            <th>Mesafe (km)</th>
+                            <th>Yakit (L)</th>
+                            <th>CO2 (kg)</th>
+                            <th>Ziyaret</th>
+                            <th>CO2/Ziyaret</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {comparison.map((c, i) => {
+                            const co2PerVisit = c.visit_count > 0 ? (c.co2_kg || 0) / c.visit_count : 0;
+                            return (
+                              <tr key={i}>
+                                <td className="cell-bold">{c.user_name}</td>
+                                <td>{c.vehicle_type || "Varsayilan"}</td>
+                                <td className="cell-mono">{(c.actual_distance || 0).toFixed(1)}</td>
+                                <td className="cell-mono">{(c.fuel_consumed || 0).toFixed(2)}</td>
+                                <td className="cell-mono" style={{ fontWeight: 600, color: "#ef4444" }}>{(c.co2_kg || 0).toFixed(2)}</td>
+                                <td className="cell-mono">{c.visit_count || 0}</td>
+                                <td className="cell-mono">{co2PerVisit.toFixed(2)} kg</td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    <div className="grid-2" style={{ marginTop: 20 }}>
+                      <div className="panel" style={{ border: "none", boxShadow: "none" }}>
+                        <div className="panel-header"><h3>ST Bazli CO2 Emisyonu (kg)</h3></div>
+                        <ResponsiveContainer width="100%" height={300}>
+                          <BarChart data={comparison.map(c => ({ name: (c.user_name || "").split(" ")[0], co2: Number((c.co2_kg || 0).toFixed(2)) }))}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                            <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+                            <YAxis tick={{ fontSize: 11 }} />
+                            <Tooltip formatter={(v) => `${v} kg CO2`} />
+                            <Bar dataKey="co2" name="CO2" fill="#ef4444" radius={[4, 4, 0, 0]} />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                      <div className="panel" style={{ border: "none", boxShadow: "none" }}>
+                        <div className="panel-header"><h3>CO2 Dagilimi</h3></div>
+                        <ResponsiveContainer width="100%" height={300}>
+                          <PieChart>
+                            <Pie
+                              data={comparison.filter(c => (c.co2_kg || 0) > 0).map((c, i) => ({ name: c.user_name, value: Number((c.co2_kg || 0).toFixed(2)) }))}
+                              cx="50%" cy="50%" outerRadius={100} innerRadius={50}
+                              dataKey="value" label={({ name, percent }) => `${name.split(" ")[0]} ${(percent * 100).toFixed(0)}%`}
+                            >
+                              {comparison.filter(c => (c.co2_kg || 0) > 0).map((_, i) => (
+                                <Cell key={i} fill={COLORS[i % COLORS.length]} />
+                              ))}
+                            </Pie>
+                            <Tooltip formatter={(v) => `${v} kg CO2`} />
+                            <Legend />
+                          </PieChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </div>
+                  </>
                 )}
               </div>
             )}

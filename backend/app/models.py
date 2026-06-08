@@ -1,5 +1,5 @@
 from sqlalchemy import (
-    Column, Integer, Float, String, DateTime, Date, ForeignKey, Text
+    Column, Integer, Float, String, DateTime, Date, ForeignKey, Text, Boolean
 )
 from sqlalchemy.orm import relationship
 from datetime import datetime, date
@@ -162,6 +162,8 @@ class SalesVisit(Base):
     check_out_at = Column(DateTime, nullable=True)
     check_in_lat = Column(Float, nullable=True)
     check_in_lng = Column(Float, nullable=True)
+    check_out_lat = Column(Float, nullable=True)
+    check_out_lng = Column(Float, nullable=True)
     distance_from_customer_m = Column(Float, nullable=True)  # GPS doğrulama mesafesi (metre)
     created_at = Column(DateTime, default=datetime.utcnow)
 
@@ -232,3 +234,49 @@ class Campaign(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
     author = relationship("User")
+
+
+# ─── Filo Yönetimi ──────────────────────────
+class VehicleType(Base):
+    __tablename__ = "vehicle_types"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(200), nullable=False)
+    fuel_type = Column(String(20), nullable=False, default="diesel")  # diesel, gasoline, lpg, electric
+    fuel_consumption_l_per_100km = Column(Float, nullable=False, default=7.5)
+    is_default = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    vehicles = relationship("Vehicle", back_populates="vehicle_type")
+
+
+class Vehicle(Base):
+    __tablename__ = "vehicles"
+
+    id = Column(Integer, primary_key=True, index=True)
+    plate_number = Column(String(20), unique=True, nullable=False)
+    vehicle_type_id = Column(Integer, ForeignKey("vehicle_types.id"), nullable=False)
+    assigned_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    notes = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    vehicle_type = relationship("VehicleType", back_populates="vehicles")
+    assigned_user = relationship("User")
+
+
+# ─── Günlük Gerçekleşen Rota ────────────────
+class DailyActualRoute(Base):
+    __tablename__ = "daily_actual_routes"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    route_date = Column(Date, nullable=False)
+    actual_distance_km = Column(Float, nullable=False, default=0)
+    actual_time_minutes = Column(Float, nullable=False, default=0)
+    estimated_distance_km = Column(Float, nullable=True)
+    estimated_time_minutes = Column(Float, nullable=True)
+    co2_emission_kg = Column(Float, nullable=True)
+    visit_count = Column(Integer, nullable=False, default=0)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    user = relationship("User")

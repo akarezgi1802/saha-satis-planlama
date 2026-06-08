@@ -20,6 +20,12 @@ const depotIcon = L.divIcon({
   iconAnchor: [18, 18],
 });
 
+function getWeekStartStr() {
+  const d = new Date();
+  d.setDate(d.getDate() - d.getDay() + (d.getDay() === 0 ? -6 : 1));
+  return d.toISOString().slice(0, 10);
+}
+
 function fmtCurrency(v) {
   if (v >= 1000000) return (v / 1000000).toFixed(1) + "M";
   if (v >= 1000) return (v / 1000).toFixed(0) + "K";
@@ -169,6 +175,9 @@ export default function Dashboard() {
   const [results, setResults] = useState(null);
   const [depot, setDepot] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [carbonSummary, setCarbonSummary] = useState(null);
+  const [carbonWeekly, setCarbonWeekly] = useState([]);
+  const [carbonDaily, setCarbonDaily] = useState([]);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -180,6 +189,21 @@ export default function Dashboard() {
       const completed = all.filter((p) => p.status === "completed");
       if (completed.length > 0) setSelectedPlan(completed[0].id);
     });
+    // Karbon verileri
+    api.get("/carbon/summary").then((r) => setCarbonSummary(r.data)).catch(() => {});
+    api.get("/carbon/weekly", { params: { weeks: 8 } }).then((r) => setCarbonWeekly(r.data?.data || [])).catch(() => {});
+    api.get("/carbon/daily", { params: { start_date: getWeekStartStr() } }).then((r) => {
+      const raw = r.data?.data || [];
+      // Gune gore grupla
+      const byDay = {};
+      raw.forEach((d) => {
+        if (!byDay[d.date]) byDay[d.date] = { name: d.date, co2_kg: 0, distance_km: 0, visits: 0 };
+        byDay[d.date].co2_kg += d.co2_kg || 0;
+        byDay[d.date].distance_km += d.actual_distance_km || 0;
+        byDay[d.date].visits += d.visit_count || 0;
+      });
+      setCarbonDaily(Object.values(byDay).sort((a, b) => a.name.localeCompare(b.name)));
+    }).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -290,6 +314,91 @@ export default function Dashboard() {
             </>
           )}
         </div>
+
+        {/* ── Karbon Emisyonu Bolumu ── */}
+        {carbonSummary && (
+          <>
+            <div className="panel" style={{ marginBottom: 16 }}>
+              <div className="panel-header"><h3>Karbon Emisyonu (CO2)</h3></div>
+              <div className="kpi-strip" style={{ padding: "12px 16px" }}>
+                <div className="kpi-tile">
+                  <div className="kpi-label">Gunluk Ort.</div>
+                  <div className="kpi-value sm">
+                    {carbonSummary.this_week?.avg_daily_co2_kg || 0}
+                    <span className="kpi-unit">kg</span>
+                  </div>
+                </div>
+                <div className="kpi-tile">
+                  <div className="kpi-label">Bu Hafta</div>
+                  <div className="kpi-value sm">
+                    {carbonSummary.this_week?.total_co2_kg || 0}
+                    <span className="kpi-unit">kg</span>
+                  </div>
+                </div>
+                <div className="kpi-tile">
+                  <div className="kpi-label">Bu Ay</div>
+                  <div className="kpi-value sm">
+                    {carbonSummary.this_month?.total_co2_kg || 0}
+                    <span className="kpi-unit">kg</span>
+                  </div>
+                </div>
+                <div className="kpi-tile">
+                  <div className="kpi-label">Ziyaret Basina</div>
+                  <div className="kpi-value sm">
+                    {carbonSummary.this_month?.co2_per_visit_kg || 0}
+                    <span className="kpi-unit">kg</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid-2" style={{ marginBottom: 16 }}>
+              {/* Gunluk CO2 Bar Chart */}
+              <div className="panel" style={{ marginBottom: 0 }}>
+                <div className="panel-header"><h3>Bu Hafta Gunluk CO2</h3></div>
+                <div style={{ padding: "8px 12px" }}>
+                  <ResponsiveContainer width="100%" height={220}>
+                    <BarChart data={carbonDaily}>
+                      <defs>
+                        <linearGradient id="co2Grad" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#ef4444" stopOpacity={0.9} />
+                          <stop offset="100%" stopColor="#ef4444" stopOpacity={0.3} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                      <XAxis dataKey="name" tick={{ fontSize: 11 }} tickFormatter={(v) => v.slice(5)} />
+                      <YAxis tick={{ fontSize: 11 }} />
+                      <Tooltip content={<CustomTooltip suffix="kg" />} />
+                      <Bar dataKey="co2_kg" name="CO2" fill="url(#co2Grad)" radius={[6, 6, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+
+              {/* Haftalik CO2 Trend */}
+              <div className="panel" style={{ marginBottom: 0 }}>
+                <div className="panel-header"><h3>Haftalik CO2 Trendi</h3></div>
+                <div style={{ padding: "8px 12px" }}>
+                  <ResponsiveContainer width="100%" height={220}>
+                    <AreaChart data={carbonWeekly}>
+                      <defs>
+                        <linearGradient id="co2AreaGrad" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#f97316" stopOpacity={0.4} />
+                          <stop offset="100%" stopColor="#f97316" stopOpacity={0.05} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                      <XAxis dataKey="label" tick={{ fontSize: 11 }} />
+                      <YAxis tick={{ fontSize: 11 }} />
+                      <Tooltip content={<CustomTooltip suffix="kg" />} />
+                      <Area type="monotone" dataKey="co2_kg" name="CO2" stroke="#f97316" strokeWidth={2} fill="url(#co2AreaGrad)" />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            </div>
+          </>
+        )}
 
         {loading ? (
           <div className="panel" style={{ padding: 60, textAlign: "center" }}>

@@ -344,13 +344,19 @@ def check_in(
     }
 
 
+class CheckOutRequest(BaseModel):
+    lat: float | None = None
+    lng: float | None = None
+
+
 @router.post("/check-out/{customer_id}")
 def check_out(
     customer_id: int,
+    body: CheckOutRequest | None = None,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    """Ziyaret tamamlandı: check-out timestamp + süre hesaplanır."""
+    """Ziyaret tamamlandı: check-out timestamp + süre hesaplanır + günlük rota güncellenir."""
     today = date.today()
     visit = db.query(SalesVisit).filter(
         SalesVisit.user_id == user.id,
@@ -370,8 +376,19 @@ def check_out(
         }
 
     visit.check_out_at = datetime.utcnow()
+    # GPS koordinatları (varsa)
+    if body and body.lat is not None and body.lng is not None:
+        visit.check_out_lat = body.lat
+        visit.check_out_lng = body.lng
     duration_sec = (visit.check_out_at - visit.check_in_at).total_seconds()
     db.commit()
+
+    # Günlük gerçekleşen rota kaydını güncelle (karbon emisyonu + mesafe)
+    try:
+        from ..services.carbon import update_daily_actual_route
+        update_daily_actual_route(db, user.id, today)
+    except Exception as e:
+        print(f"[carbon] Gunluk rota guncelleme hatasi: {e}")
 
     return {
         "detail": "Check-out başarılı",
@@ -771,6 +788,9 @@ def admin_list_visits(
     for v in visits:
         cust = db.query(Customer).filter(Customer.id == v.customer_id).first()
         user = db.query(User).filter(User.id == v.user_id).first()
+        duration_min = None
+        if v.check_in_at and v.check_out_at:
+            duration_min = round((v.check_out_at - v.check_in_at).total_seconds() / 60, 1)
         result.append({
             "id": v.id,
             "user_id": v.user_id,
@@ -781,5 +801,9 @@ def admin_list_visits(
             "sale_amount": v.sale_amount,
             "visited": v.visited,
             "notes": v.notes,
+            "check_in_at": v.check_in_at.isoformat() if v.check_in_at else None,
+            "check_out_at": v.check_out_at.isoformat() if v.check_out_at else None,
+            "duration_minutes": duration_min,
+            "distance_from_customer_m": round(v.distance_from_customer_m, 1) if v.distance_from_customer_m else None,
         })
     return result
