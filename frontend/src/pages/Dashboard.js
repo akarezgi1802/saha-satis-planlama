@@ -10,7 +10,9 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import api from "../api";
 
-const COLORS = ["#6366f1", "#ef4444", "#10b981", "#f59e0b", "#3b82f6", "#8b5cf6", "#ec4899", "#14b8a6", "#f97316", "#06b6d4"];
+const COLORS = ["#6366f1", "#ef4444", "#10b981", "#f59e0b", "#3b82f6", "#8b5cf6", "#ec4899", "#14b8a6", "#f97316", "#06b6d4", "#84cc16", "#e11d48"];
+// Grafikler için pastel (göz yormayan) tonlar — UI öğeleri (avatar/rozet/harita) COLORS kullanır
+const CHART_COLORS = ["#a5b4fc", "#fca5a5", "#6ee7b7", "#fcd34d", "#93c5fd", "#c4b5fd", "#f9a8d4", "#5eead4", "#fdba74", "#67e8f9", "#bef264", "#fda4af"];
 const DAY_SHORT = { 1: "Pzt", 2: "Salı", 3: "Çar", 4: "Per", 5: "Cum", 6: "Cmt" };
 
 const depotIcon = L.divIcon({
@@ -464,10 +466,10 @@ export default function Dashboard() {
                 <ResponsiveContainer width="100%" height={window.innerWidth <= 768 ? 250 : 380}>
                   <PieChart>
                     <defs>
-                      {COLORS.map((c, i) => (
+                      {CHART_COLORS.map((c, i) => (
                         <linearGradient key={i} id={`pie-grad-${i}`} x1="0" y1="0" x2="0" y2="1">
                           <stop offset="0%" stopColor={c} stopOpacity={1} />
-                          <stop offset="100%" stopColor={c} stopOpacity={0.7} />
+                          <stop offset="100%" stopColor={c} stopOpacity={0.75} />
                         </linearGradient>
                       ))}
                     </defs>
@@ -483,7 +485,7 @@ export default function Dashboard() {
                       strokeWidth={2}
                       stroke="#fff"
                     >
-                      {clusterData.map((d) => <Cell key={d.cluster_index} fill={`url(#pie-grad-${d.cluster_index % COLORS.length})`} />)}
+                      {clusterData.map((d) => <Cell key={d.cluster_index} fill={`url(#pie-grad-${d.cluster_index % CHART_COLORS.length})`} />)}
                     </Pie>
                     <Tooltip content={<PieTooltip />} />
                   </PieChart>
@@ -511,7 +513,7 @@ export default function Dashboard() {
                     <YAxis tick={{ fontSize: 11, fill: "#94a3b8" }} tickFormatter={fmtCurrency} axisLine={false} tickLine={false} />
                     <Tooltip content={<CustomTooltip suffix="₺" />} cursor={{ fill: "#f8fafc" }} />
                     <Bar dataKey="revenue" name="Ciro" radius={[8, 8, 0, 0]} barSize={window.innerWidth <= 768 ? 18 : 36}>
-                      {clusterData.map((d) => <Cell key={d.cluster_index} fill={COLORS[d.cluster_index % COLORS.length]} />)}
+                      {clusterData.map((d) => <Cell key={d.cluster_index} fill={CHART_COLORS[d.cluster_index % CHART_COLORS.length]} />)}
                     </Bar>
                   </BarChart>
                 </ResponsiveContainer>
@@ -535,7 +537,7 @@ export default function Dashboard() {
                     <YAxis tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} allowDecimals={false} />
                     <Tooltip content={<CustomTooltip suffix="müşteri" />} cursor={{ fill: "#f8fafc" }} />
                     <Bar dataKey="count" name="Müşteri" radius={[8, 8, 0, 0]} barSize={window.innerWidth <= 768 ? 18 : 36}>
-                      {clusterData.map((d) => <Cell key={d.cluster_index} fill={COLORS[d.cluster_index % COLORS.length]} />)}
+                      {clusterData.map((d) => <Cell key={d.cluster_index} fill={CHART_COLORS[d.cluster_index % CHART_COLORS.length]} />)}
                     </Bar>
                   </BarChart>
                 </ResponsiveContainer>
@@ -612,7 +614,7 @@ export default function Dashboard() {
                   <YAxis tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} allowDecimals={false} />
                   <Tooltip content={<CustomTooltip suffix="müşteri" />} cursor={{ fill: "#f8fafc" }} />
                   <Bar dataKey="visits" name="Ziyaret" radius={[6, 6, 0, 0]} barSize={window.innerWidth <= 768 ? 22 : 44}>
-                    {stVisitData.map((d) => <Cell key={d.cluster_index} fill={COLORS[d.cluster_index % COLORS.length]} />)}
+                    {stVisitData.map((d) => <Cell key={d.cluster_index} fill={CHART_COLORS[d.cluster_index % CHART_COLORS.length]} />)}
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
