@@ -258,63 +258,6 @@ class UserUpdateByAdmin(BaseModel):
     monthly_target: float | None = None
 
 
-# ─── Invoice ─────────────────────────────
-class InvoiceItemCreate(BaseModel):
-    product_name: str
-    quantity: float = 1
-    unit: str | None = "adet"
-    unit_price: float = 0
-
-
-class InvoiceItemOut(BaseModel):
-    id: int
-    product_name: str
-    quantity: float
-    unit: str | None
-    unit_price: float
-    line_total: float
-
-    model_config = {"from_attributes": True}
-
-
-class InvoiceCreate(BaseModel):
-    customer_id: int
-    invoice_date: date | None = None
-    tax_rate: float = 20
-    notes: str | None = None
-    items: list[InvoiceItemCreate] = []
-    quick_total: float | None = None
-
-
-class InvoiceUpdate(BaseModel):
-    status: str | None = None
-    notes: str | None = None
-    tax_rate: float | None = None
-    items: list[InvoiceItemCreate] | None = None
-    quick_total: float | None = None
-
-
-class InvoiceOut(BaseModel):
-    id: int
-    invoice_no: str
-    user_id: int
-    user_name: str | None = None
-    customer_id: int
-    customer_name: str | None = None
-    customer_tax_number: str | None = None
-    customer_tax_office: str | None = None
-    customer_address: str | None = None
-    invoice_date: date
-    subtotal: float
-    tax_rate: float
-    tax_amount: float
-    total: float
-    status: str
-    notes: str | None
-    items: list[InvoiceItemOut] = []
-    created_at: datetime
-
-    model_config = {"from_attributes": True}
 
 
 # ─── Campaign ────────────────────────────
