@@ -43,9 +43,15 @@ export default function Reports() {
     api.get("/auth/users").then((r) => {
       setUsersList(Array.isArray(r.data) ? r.data : []);
     }).catch(() => {});
-    api.get("/customers/?limit=2000").then((r) => {
+    api.get("/customers/", { params: { limit: 1000 } }).then((r) => {
       setCustomersList(Array.isArray(r.data) ? r.data : []);
-    }).catch(() => {});
+    }).catch((e) => {
+      console.error("Müşteri listesi yüklenemedi:", e);
+      // Yedek deneme (trailing slash / param farkı ihtimaline karşı)
+      api.get("/customers").then((r) => {
+        setCustomersList(Array.isArray(r.data) ? r.data : []);
+      }).catch((e2) => console.error("Müşteri listesi (yedek) yüklenemedi:", e2));
+    });
   }, []);
 
   const loadData = useCallback(async () => {
@@ -187,7 +193,9 @@ export default function Reports() {
               </select>
             </div>
             <div>
-              <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 4 }}>Müşteri</div>
+              <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 4 }}>
+                Müşteri {customers.length > 0 ? `(${customers.length} kayıtlı)` : "(yükleniyor...)"}
+              </div>
               <MultiCustomerSelect
                 customers={customers}
                 selected={filterCustomers}
