@@ -5,7 +5,8 @@ import {
 } from "recharts";
 import api from "../api";
 
-const COLORS = ["#6366f1", "#ef4444", "#10b981", "#f59e0b", "#3b82f6", "#8b5cf6", "#ec4899", "#14b8a6"];
+// Plan haritasıyla (PlanDetail) aynı bölge renk paleti
+const COLORS = ["#6366f1", "#ef4444", "#10b981", "#f59e0b", "#3b82f6", "#8b5cf6", "#ec4899", "#14b8a6", "#f97316", "#06b6d4", "#84cc16", "#e11d48"];
 
 export default function AdminPerformance() {
   const [tab, setTab] = useState("overview");
@@ -174,9 +175,10 @@ export default function AdminPerformance() {
                                 <span style={{
                                   width: 28, height: 28, borderRadius: 8, display: "inline-flex",
                                   alignItems: "center", justifyContent: "center",
-                                  background: COLORS[i % COLORS.length], color: "#fff",
+                                  background: rep.cluster_index != null ? COLORS[rep.cluster_index % COLORS.length] : "#94a3b8",
+                                  color: "#fff",
                                   fontSize: 12, fontWeight: 700,
-                                }}>
+                                }} title={rep.cluster_index != null ? `Bölge ${rep.cluster_index + 1}` : "Bölge atanmadı"}>
                                   {rep.full_name.charAt(0)}
                                 </span>
                                 <div>
@@ -187,7 +189,10 @@ export default function AdminPerformance() {
                             </td>
                             <td>
                               {rep.cluster_index !== null ? (
-                                <span className="badge-freq">Bölge {rep.cluster_index + 1}</span>
+                                <span className="badge-freq" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                                  <span style={{ width: 10, height: 10, borderRadius: "50%", background: COLORS[rep.cluster_index % COLORS.length], border: "1px solid rgba(0,0,0,0.1)" }} />
+                                  Bölge {rep.cluster_index + 1}
+                                </span>
                               ) : (
                                 <span style={{ color: "#94a3b8" }}>—</span>
                               )}
