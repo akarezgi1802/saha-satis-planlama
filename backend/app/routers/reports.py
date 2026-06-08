@@ -28,6 +28,16 @@ def _get_user_from_token(token: str, db: Session) -> User:
         raise HTTPException(401, "Gecersiz token")
 
 
+def _parse_customer_ids(customer_id, customer_ids):
+    """Tekli customer_id veya virgulle ayrilmis customer_ids'i ID listesine cevirir."""
+    ids = []
+    if customer_ids:
+        ids = [int(x) for x in str(customer_ids).split(",") if x.strip().isdigit()]
+    elif customer_id:
+        ids = [customer_id]
+    return ids
+
+
 def _apply_date_filter(q, start_date, end_date, period):
     """Tarih filtresini uygula."""
     if period == "today":
@@ -55,6 +65,7 @@ def list_sales(
     period: str | None = None,
     user_id: int | None = None,
     customer_id: int | None = None,
+    customer_ids: str | None = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -67,8 +78,9 @@ def list_sales(
 
     if user_id:
         q = q.filter(SalesVisit.user_id == user_id)
-    if customer_id:
-        q = q.filter(SalesVisit.customer_id == customer_id)
+    cust_ids = _parse_customer_ids(customer_id, customer_ids)
+    if cust_ids:
+        q = q.filter(SalesVisit.customer_id.in_(cust_ids))
 
     # Admin degil ise sadece kendi kayitlari
     if current_user.role != "admin":
@@ -102,6 +114,7 @@ def report_summary(
     period: str | None = None,
     user_id: int | None = None,
     customer_id: int | None = None,
+    customer_ids: str | None = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -110,8 +123,9 @@ def report_summary(
 
     if user_id:
         q = q.filter(SalesVisit.user_id == user_id)
-    if customer_id:
-        q = q.filter(SalesVisit.customer_id == customer_id)
+    cust_ids = _parse_customer_ids(customer_id, customer_ids)
+    if cust_ids:
+        q = q.filter(SalesVisit.customer_id.in_(cust_ids))
     if current_user.role != "admin":
         q = q.filter(SalesVisit.user_id == current_user.id)
 
@@ -154,6 +168,7 @@ def export_excel(
     period: str | None = None,
     user_id: int | None = None,
     customer_id: int | None = None,
+    customer_ids: str | None = None,
     db: Session = Depends(get_db),
 ):
     current_user = _get_user_from_token(token, db)
@@ -166,8 +181,9 @@ def export_excel(
 
     if user_id:
         q = q.filter(SalesVisit.user_id == user_id)
-    if customer_id:
-        q = q.filter(SalesVisit.customer_id == customer_id)
+    cust_ids = _parse_customer_ids(customer_id, customer_ids)
+    if cust_ids:
+        q = q.filter(SalesVisit.customer_id.in_(cust_ids))
     if current_user.role != "admin":
         q = q.filter(SalesVisit.user_id == current_user.id)
 
@@ -273,6 +289,7 @@ def export_pdf(
     period: str | None = None,
     user_id: int | None = None,
     customer_id: int | None = None,
+    customer_ids: str | None = None,
     db: Session = Depends(get_db),
 ):
     current_user = _get_user_from_token(token, db)
@@ -285,8 +302,9 @@ def export_pdf(
 
     if user_id:
         q = q.filter(SalesVisit.user_id == user_id)
-    if customer_id:
-        q = q.filter(SalesVisit.customer_id == customer_id)
+    cust_ids = _parse_customer_ids(customer_id, customer_ids)
+    if cust_ids:
+        q = q.filter(SalesVisit.customer_id.in_(cust_ids))
     if current_user.role != "admin":
         q = q.filter(SalesVisit.user_id == current_user.id)
 

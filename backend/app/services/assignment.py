@@ -111,7 +111,10 @@ def run_weekly_assignment(
     y = {(i, s_idx): pulp.LpVariable(f"y_{i}_{s_idx}", cat="Binary")
          for i in range(n) for s_idx in range(len(S[i]))}
 
-    z = {(i, j, g): pulp.LpVariable(f"z_{i}_{j}_{g}", cat="Binary")
+    # z surekli [0,1] olarak tanimlanir. Amac fonksiyonu z'yi minimize ettigi ve
+    # asagidaki alt sinir kisiti tam sayi cozum urettigi icin Binary'e gerek yok;
+    # surekli degisken dallanma gerektirmedigi icin cozum cok daha hizli.
+    z = {(i, j, g): pulp.LpVariable(f"z_{i}_{j}_{g}", lowBound=0, upBound=1, cat="Continuous")
          for i, j in combinations(range(n), 2) for g in G}
 
     def varlik(i, g):
@@ -130,13 +133,11 @@ def run_weekly_assignment(
         model += pulp.lpSum(varlik(i, g) for i in range(n)) >= avg - delta
         model += pulp.lpSum(varlik(i, g) for i in range(n)) <= avg + delta
 
+    # Tek kisit yeterli: z >= vi + vj - 1
+    # (z <= vi ve z <= vj kisitlari gereksiz; minimize problemi zaten z'yi 0'a iter)
     for i, j in combinations(range(n), 2):
         for g in G:
-            vi = varlik(i, g)
-            vj = varlik(j, g)
-            model += z[i, j, g] <= vi
-            model += z[i, j, g] <= vj
-            model += z[i, j, g] >= vi + vj - 1
+            model += z[i, j, g] >= varlik(i, g) + varlik(j, g) - 1
 
     model.solve(pulp.PULP_CBC_CMD(msg=0, timeLimit=time_limit))
 

@@ -24,7 +24,7 @@ export default function Reports() {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [filterUser, setFilterUser] = useState("");
-  const [filterCustomer, setFilterCustomer] = useState("");
+  const [filterCustomers, setFilterCustomers] = useState([]);
 
   const [showDetail, setShowDetail] = useState(null);
   const [isMobile, setIsMobile] = useState(false);
@@ -43,7 +43,7 @@ export default function Reports() {
     api.get("/auth/users").then((r) => {
       setUsersList(Array.isArray(r.data) ? r.data : []);
     }).catch(() => {});
-    api.get("/customers").then((r) => {
+    api.get("/customers/?limit=2000").then((r) => {
       setCustomersList(Array.isArray(r.data) ? r.data : []);
     }).catch(() => {});
   }, []);
@@ -57,7 +57,7 @@ export default function Reports() {
       if (startDate && !period) p.start_date = startDate;
       if (endDate && !period) p.end_date = endDate;
       if (filterUser) p.user_id = filterUser;
-      if (filterCustomer) p.customer_id = filterCustomer;
+      if (filterCustomers.length > 0) p.customer_ids = filterCustomers.join(",");
 
       const [salesRes, sumRes] = await Promise.all([
         api.get("/reports/sales", { params: p }),
@@ -72,7 +72,7 @@ export default function Reports() {
       setSummary(null);
     }
     setLoading(false);
-  }, [period, startDate, endDate, filterUser, filterCustomer]);
+  }, [period, startDate, endDate, filterUser, filterCustomers]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
@@ -82,7 +82,7 @@ export default function Reports() {
     if (startDate && !period) p.start_date = startDate;
     if (endDate && !period) p.end_date = endDate;
     if (filterUser) p.user_id = filterUser;
-    if (filterCustomer) p.customer_id = filterCustomer;
+    if (filterCustomers.length > 0) p.customer_ids = filterCustomers.join(",");
     return p;
   };
 
@@ -188,12 +188,11 @@ export default function Reports() {
             </div>
             <div>
               <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 4 }}>Musteri</div>
-              <select className="form-input" value={filterCustomer} onChange={(e) => setFilterCustomer(e.target.value)} style={{ width: 160 }}>
-                <option value="">Tumu</option>
-                {customers.map((c) => (
-                  <option key={c.id} value={c.id}>{c.name || "?"}</option>
-                ))}
-              </select>
+              <MultiCustomerSelect
+                customers={customers}
+                selected={filterCustomers}
+                onChange={setFilterCustomers}
+              />
             </div>
           </div>
         </div>
@@ -309,6 +308,13 @@ export default function Reports() {
                     </tr>
                   ))}
                 </tbody>
+                <tfoot>
+                  <tr style={{ borderTop: "2px solid var(--border)", fontWeight: 800, background: "var(--bg-secondary)" }}>
+                    <td colSpan={4} style={{ textAlign: "right", padding: "12px 8px" }}>TOPLAM ({sales.length} kayit)</td>
+                    <td className="cell-mono" style={{ color: "var(--brand)", fontWeight: 800, fontSize: 14 }}>{formatTL(totalSales)} TL</td>
+                    <td colSpan={2}></td>
+                  </tr>
+                </tfoot>
               </table>
             </div>
           )}
@@ -383,6 +389,99 @@ export default function Reports() {
             </div>
           </div>
         </div>
+      )}
+    </div>
+  );
+}
+
+function MultiCustomerSelect({ customers, selected, onChange }) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+
+  const list = Array.isArray(customers) ? customers : [];
+  const filtered = search
+    ? list.filter((c) => (c.name || "").toLowerCase().includes(search.toLowerCase()))
+    : list;
+
+  const toggle = (id) => {
+    const sid = String(id);
+    if (selected.includes(sid)) {
+      onChange(selected.filter((x) => x !== sid));
+    } else {
+      onChange([...selected, sid]);
+    }
+  };
+
+  const label =
+    selected.length === 0
+      ? "Tumu"
+      : selected.length === 1
+      ? (list.find((c) => String(c.id) === selected[0])?.name || "1 musteri")
+      : `${selected.length} musteri secili`;
+
+  return (
+    <div style={{ position: "relative", width: 200 }}>
+      <button
+        type="button"
+        className="form-input"
+        onClick={() => { setOpen((o) => !o); setSearch(""); }}
+        style={{
+          width: "100%", textAlign: "left", cursor: "pointer",
+          display: "flex", justifyContent: "space-between", alignItems: "center",
+          color: selected.length === 0 ? "var(--text-secondary)" : "var(--text)",
+        }}
+      >
+        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{label}</span>
+        <span style={{ marginLeft: 6, fontSize: 10, color: "var(--text-secondary)" }}>▼</span>
+      </button>
+
+      {open && (
+        <>
+          <div style={{ position: "fixed", inset: 0, zIndex: 99 }} onClick={() => setOpen(false)} />
+          <div style={{
+            position: "absolute", top: "100%", left: 0, right: 0, zIndex: 100, marginTop: 2,
+            background: "#fff", border: "1px solid var(--border)", borderRadius: 8,
+            boxShadow: "var(--shadow-md)", maxHeight: 320, display: "flex", flexDirection: "column",
+          }}>
+            <div style={{ padding: 8, borderBottom: "1px solid var(--border-light)" }}>
+              <input
+                className="form-input"
+                placeholder="Musteri ara..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                autoFocus
+                style={{ width: "100%", fontSize: 13 }}
+              />
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", padding: "6px 10px", borderBottom: "1px solid var(--border-light)", fontSize: 12 }}>
+              <span style={{ color: "var(--text-secondary)" }}>{selected.length} secili</span>
+              {selected.length > 0 && (
+                <button type="button" onClick={() => onChange([])} style={{ border: "none", background: "none", color: "var(--brand)", cursor: "pointer", fontWeight: 600, fontSize: 12 }}>
+                  Temizle
+                </button>
+              )}
+            </div>
+            <div style={{ overflowY: "auto", flex: 1 }}>
+              {filtered.length === 0 ? (
+                <div style={{ padding: "12px 16px", color: "#94a3b8", fontSize: 13 }}>Sonuc bulunamadi</div>
+              ) : (
+                filtered.map((c) => {
+                  const checked = selected.includes(String(c.id));
+                  return (
+                    <label key={c.id} style={{
+                      display: "flex", alignItems: "center", gap: 8, padding: "8px 12px",
+                      cursor: "pointer", fontSize: 13,
+                      background: checked ? "var(--bg-secondary)" : "transparent",
+                    }}>
+                      <input type="checkbox" checked={checked} onChange={() => toggle(c.id)} />
+                      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.name || "?"}</span>
+                    </label>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        </>
       )}
     </div>
   );
