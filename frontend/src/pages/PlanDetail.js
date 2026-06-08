@@ -153,9 +153,18 @@ export default function PlanDetail() {
 
         {plan.status === "interrupted" && (
           <div className="msg-strip" style={{ background: "#fee2e2", borderColor: "#f87171", color: "#991b1b", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <span><strong>Plan başarısız oldu.</strong> Sunucu yeniden başlatıldığı için optimizasyon yarıda kesildi.</span>
+            <span><strong>Plan kesintiye ugradi.</strong> Sunucu yeniden baslatildigi icin optimizasyon yarida kesildi.</span>
             <button className="btn btn-emphasized btn-sm" onClick={handleRun} style={{ marginLeft: 16, flexShrink: 0 }}>
-              Tekrar Çalıştır
+              Tekrar Calistir
+            </button>
+          </div>
+        )}
+
+        {plan.status && plan.status.startsWith("error:") && (
+          <div className="msg-strip" style={{ background: "#fee2e2", borderColor: "#f87171", color: "#991b1b", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <span><strong>Hata:</strong> {plan.status.replace("error: ", "")}</span>
+            <button className="btn btn-emphasized btn-sm" onClick={handleRun} style={{ marginLeft: 16, flexShrink: 0 }}>
+              Tekrar Calistir
             </button>
           </div>
         )}
@@ -265,6 +274,19 @@ function PipelineProgress({ currentStep, elapsed }) {
       </div>
       <div className="panel-body padded">
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "center" }}>
+          <div style={{
+            padding: "10px 16px", marginBottom: 16, borderRadius: 8,
+            background: "linear-gradient(135deg, #eff6ff, #f0fdf4)",
+            border: "1px solid #bfdbfe", fontSize: 12, color: "#1e40af",
+            display: "flex", alignItems: "center", gap: 8,
+          }}>
+            <span style={{ fontSize: 16 }}>&#9889;</span>
+            <span>
+              Optimizasyon <strong>sunucuda</strong> calisiyor.
+              Tarayiciyi kapatabilir veya bilgisayari kapatabilirsiniz &mdash; hesaplama arka planda devam eder.
+              Geri dondugunde bu sayfayi acarak sonucu gorebilirsiniz.
+            </span>
+          </div>
           {STEPS.map((step, i) => {
             const isDone = i < currentIdx;
             const isActive = i === currentIdx;
@@ -775,11 +797,14 @@ function RoutesTab({ results, stList }) {
 }
 
 function StatusBadge({ status }) {
-  if (status === "completed") return <span className="status status-completed"><span className="status-dot" />Tamamlandı</span>;
-  if (isRunning(status)) return <span className="status status-running"><span className="status-dot" />Çalışıyor</span>;
+  if (status === "completed") return <span className="status status-completed"><span className="status-dot" />Tamamlandi</span>;
+  if (status === "clustering") return <span className="status status-running"><span className="status-dot" />Kumeleme (MILP)</span>;
+  if (status === "assignment") return <span className="status status-running"><span className="status-dot" />Haftalik Atama</span>;
+  if (status === "routing") return <span className="status status-running"><span className="status-dot" />Rota Optimizasyonu</span>;
   if (status === "pending") return <span className="status status-pending"><span className="status-dot" />Bekliyor</span>;
   if (status === "cancelled") return <span className="status status-pending"><span className="status-dot" />Durduruldu</span>;
-  if (status === "interrupted") return <span className="status status-error"><span className="status-dot" />Başarısız</span>;
+  if (status === "interrupted") return <span className="status status-error"><span className="status-dot" />Kesintiye Ugradi</span>;
+  if (status && status.startsWith("error:")) return <span className="status status-error"><span className="status-dot" />Hata</span>;
   return <span className="status status-error"><span className="status-dot" />Hata</span>;
 }
 

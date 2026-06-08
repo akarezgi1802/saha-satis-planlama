@@ -284,6 +284,13 @@ def _run_full_pipeline(plan_id: int):
             return
 
         clusters = clustering_result["clusters"]
+        if not clusters:
+            raise RuntimeError(
+                f"MILP feasible cozum bulunamadi. "
+                f"Durum: {clustering_result.get('details', {}).get('status', '?')}. "
+                f"Toleranslari (rev={REVENUE_TOL}, vis={VISIT_TOL}) artirmayi deneyin."
+            )
+
         for ci, cluster_data in clusters.items():
             center_cust_id = cust_ids[cluster_data["center_index"]]
             for cust_idx in cluster_data["customer_indices"]:

@@ -14,6 +14,16 @@ export default function Plans() {
     loadPlans();
   }, []);
 
+  // Calisan plan varsa otomatik yenile (sayfadan cikip geri geldildiginde)
+  useEffect(() => {
+    const hasRunning = plans.some((p) =>
+      ["clustering", "assignment", "routing"].includes(p.status)
+    );
+    if (!hasRunning) return;
+    const interval = setInterval(loadPlans, 5000);
+    return () => clearInterval(interval);
+  }, [plans]);
+
   function loadPlans() {
     api.get("/plans/").then((r) => setPlans(r.data));
   }
@@ -156,15 +166,21 @@ export default function Plans() {
 
 function StatusBadge({ status }) {
   if (status === "completed")
-    return <span className="status status-completed"><span className="status-dot" />Tamamlandı</span>;
-  if (["clustering", "assignment", "routing"].includes(status))
-    return <span className="status status-running"><span className="status-dot" />Çalışıyor</span>;
+    return <span className="status status-completed"><span className="status-dot" />Tamamlandi</span>;
+  if (status === "clustering")
+    return <span className="status status-running"><span className="status-dot" />Kumeleme (MILP)</span>;
+  if (status === "assignment")
+    return <span className="status status-running"><span className="status-dot" />Haftalik Atama</span>;
+  if (status === "routing")
+    return <span className="status status-running"><span className="status-dot" />Rota Optimizasyonu</span>;
   if (status === "pending")
     return <span className="status status-pending"><span className="status-dot" />Bekliyor</span>;
   if (status === "cancelled")
     return <span className="status status-pending"><span className="status-dot" />Durduruldu</span>;
   if (status === "interrupted")
-    return <span className="status status-error"><span className="status-dot" />Başarısız</span>;
+    return <span className="status status-error"><span className="status-dot" />Kesintiye Ugradi</span>;
+  if (status && status.startsWith("error:"))
+    return <span className="status status-error" title={status}><span className="status-dot" />Hata</span>;
   return <span className="status status-error"><span className="status-dot" />Hata</span>;
 }
 
