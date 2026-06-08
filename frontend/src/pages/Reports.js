@@ -1,27 +1,19 @@
 import { useState, useEffect, useCallback } from "react";
 import api from "../api";
 
-const STATUS_MAP = { draft: "Taslak", approved: "Onaylandi", paid: "Odendi", cancelled: "Iptal" };
-const STATUS_COLORS = { draft: "#f59e0b", approved: "#3b82f6", paid: "#10b981", cancelled: "#ef4444" };
-
 function safeNum(v) {
   const n = Number(v);
   return isNaN(n) ? 0 : n;
 }
-
 function formatTL(v) {
   try { return safeNum(v).toLocaleString("tr-TR"); } catch { return "0"; }
 }
-
 function safeDate(v) {
-  try {
-    if (!v) return "-";
-    return new Date(v).toLocaleDateString("tr-TR");
-  } catch { return "-"; }
+  try { if (!v) return "-"; return new Date(v).toLocaleDateString("tr-TR"); } catch { return "-"; }
 }
 
 export default function Reports() {
-  const [invoices, setInvoices] = useState([]);
+  const [sales, setSales] = useState([]);
   const [summary, setSummary] = useState(null);
   const [customersList, setCustomersList] = useState([]);
   const [usersList, setUsersList] = useState([]);
@@ -33,23 +25,12 @@ export default function Reports() {
   const [endDate, setEndDate] = useState("");
   const [filterUser, setFilterUser] = useState("");
   const [filterCustomer, setFilterCustomer] = useState("");
-  const [filterStatus, setFilterStatus] = useState("");
 
-  const [showDialog, setShowDialog] = useState(false);
   const [showDetail, setShowDetail] = useState(null);
-  const [formMode, setFormMode] = useState("quick");
-
-  const [formCustomer, setFormCustomer] = useState("");
-  const [formDate, setFormDate] = useState(() => {
-    try { return new Date().toISOString().split("T")[0]; } catch { return ""; }
-  });
-  const [formTaxRate, setFormTaxRate] = useState(20);
-  const [formNotes, setFormNotes] = useState("");
-  const [formQuickTotal, setFormQuickTotal] = useState("");
-  const [formItems, setFormItems] = useState([{ product_name: "", quantity: 1, unit: "adet", unit_price: 0 }]);
-  const [saving, setSaving] = useState(false);
-
   const [isMobile, setIsMobile] = useState(false);
+
+  const customers = Array.isArray(customersList) ? customersList : [];
+  const users = Array.isArray(usersList) ? usersList : [];
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth <= 768);
@@ -58,18 +39,12 @@ export default function Reports() {
     return () => window.removeEventListener("resize", check);
   }, []);
 
-  // Güvenli dizi dönüştürme
-  const customers = Array.isArray(customersList) ? customersList : [];
-  const users = Array.isArray(usersList) ? usersList : [];
-
   useEffect(() => {
     api.get("/auth/users").then((r) => {
-      const d = r.data;
-      setUsersList(Array.isArray(d) ? d : (d && d.items ? d.items : []));
+      setUsersList(Array.isArray(r.data) ? r.data : []);
     }).catch(() => {});
     api.get("/customers").then((r) => {
-      const d = r.data;
-      setCustomersList(Array.isArray(d) ? d : (d && d.items ? d.items : []));
+      setCustomersList(Array.isArray(r.data) ? r.data : []);
     }).catch(() => {});
   }, []);
 
@@ -83,22 +58,21 @@ export default function Reports() {
       if (endDate && !period) p.end_date = endDate;
       if (filterUser) p.user_id = filterUser;
       if (filterCustomer) p.customer_id = filterCustomer;
-      if (filterStatus) p.status = filterStatus;
 
-      const [invRes, sumRes] = await Promise.all([
-        api.get("/reports/invoices", { params: p }),
+      const [salesRes, sumRes] = await Promise.all([
+        api.get("/reports/sales", { params: p }),
         api.get("/reports/summary", { params: p }),
       ]);
-      setInvoices(Array.isArray(invRes.data) ? invRes.data : []);
+      setSales(Array.isArray(salesRes.data) ? salesRes.data : []);
       setSummary(sumRes.data && typeof sumRes.data === "object" ? sumRes.data : null);
     } catch (err) {
       console.error("Rapor yuklenemedi:", err);
       setError(err?.response?.data?.detail || err?.message || "Veriler yuklenemedi");
-      setInvoices([]);
+      setSales([]);
       setSummary(null);
     }
     setLoading(false);
-  }, [period, startDate, endDate, filterUser, filterCustomer, filterStatus]);
+  }, [period, startDate, endDate, filterUser, filterCustomer]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
@@ -109,7 +83,6 @@ export default function Reports() {
     if (endDate && !period) p.end_date = endDate;
     if (filterUser) p.user_id = filterUser;
     if (filterCustomer) p.customer_id = filterCustomer;
-    if (filterStatus) p.status = filterStatus;
     return p;
   };
 
@@ -131,95 +104,20 @@ export default function Reports() {
     } catch (err) { alert("Hata: " + err.message); }
   };
 
-  const handleInvoicePDF = (inv) => {
-    try {
-      const token = localStorage.getItem("token");
-      const base = api.defaults.baseURL || "/api";
-      window.open(`${base}/reports/invoices/${inv.id}/pdf?token=${token}`, "_blank");
-    } catch (err) { alert("Hata: " + err.message); }
-  };
-
-  const handleStatusChange = async (inv, newStatus) => {
-    try {
-      await api.put(`/reports/invoices/${inv.id}`, { status: newStatus });
-      loadData();
-    } catch (err) {
-      alert("Hata: " + (err?.response?.data?.detail || err?.message || "Bilinmeyen hata"));
-    }
-  };
-
-  const handleDeleteInvoice = async (inv) => {
-    if (!window.confirm((inv.invoice_no || "") + " faturasini silmek istediginize emin misiniz?")) return;
-    try {
-      await api.delete(`/reports/invoices/${inv.id}`);
-      loadData();
-    } catch (err) {
-      alert("Hata: " + (err?.response?.data?.detail || err?.message || "Bilinmeyen hata"));
-    }
-  };
-
-  const addItem = () => setFormItems([...formItems, { product_name: "", quantity: 1, unit: "adet", unit_price: 0 }]);
-  const removeItem = (i) => setFormItems(formItems.filter((_, idx) => idx !== i));
-  const updateItem = (i, field, value) => {
-    const items = [...formItems];
-    items[i] = { ...items[i], [field]: value };
-    setFormItems(items);
-  };
-
-  const handleCreateInvoice = async () => {
-    if (!formCustomer) { alert("Musteri secin"); return; }
-    setSaving(true);
-    try {
-      const body = {
-        customer_id: Number(formCustomer),
-        invoice_date: formDate || undefined,
-        tax_rate: safeNum(formTaxRate),
-        notes: formNotes || null,
-      };
-      if (formMode === "quick") {
-        body.quick_total = safeNum(formQuickTotal);
-        body.items = [];
-      } else {
-        body.items = formItems
-          .filter((it) => it.product_name && it.product_name.trim())
-          .map((it) => ({
-            product_name: it.product_name,
-            quantity: safeNum(it.quantity),
-            unit: it.unit || "adet",
-            unit_price: safeNum(it.unit_price),
-          }));
-      }
-      await api.post("/reports/invoices", body);
-      setShowDialog(false);
-      resetForm();
-      loadData();
-    } catch (err) {
-      alert("Hata: " + (err?.response?.data?.detail || err?.message || "Bilinmeyen hata"));
-    }
-    setSaving(false);
-  };
-
-  const resetForm = () => {
-    setFormCustomer("");
-    try { setFormDate(new Date().toISOString().split("T")[0]); } catch { setFormDate(""); }
-    setFormTaxRate(20);
-    setFormNotes("");
-    setFormQuickTotal("");
-    setFormItems([{ product_name: "", quantity: 1, unit: "adet", unit_price: 0 }]);
-    setFormMode("quick");
-  };
-
-  const detailedSubtotal = formItems.reduce((s, it) => s + (safeNum(it.quantity) * safeNum(it.unit_price)), 0);
-  const quickTotal = safeNum(formQuickTotal);
-  const taxRate = safeNum(formTaxRate);
+  const totalSales = sales.reduce((s, v) => s + safeNum(v.sale_amount), 0);
 
   return (
     <div>
       <div className="page-toolbar">
-        <h1>Raporlar &amp; Faturalar</h1>
+        <h1>Satis Raporlari</h1>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <button className="btn btn-emphasized" onClick={() => { resetForm(); setShowDialog(true); }}>
-            + Yeni Fatura
+          <button className="btn" onClick={handleExportExcel} style={{ background: "#10b981", color: "#fff" }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{marginRight:4,verticalAlign:"middle"}}><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            Excel
+          </button>
+          <button className="btn" onClick={handleExportPDF} style={{ background: "#ef4444", color: "#fff" }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{marginRight:4,verticalAlign:"middle"}}><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            PDF
           </button>
         </div>
       </div>
@@ -231,23 +129,24 @@ export default function Reports() {
           </div>
         )}
 
+        {/* KPI */}
         {summary && (
           <div className="kpi-strip">
             <div className="kpi-tile">
-              <div className="kpi-label">Toplam Fatura</div>
-              <div className="kpi-value">{safeNum(summary.total_invoices)}</div>
+              <div className="kpi-label">Toplam Kayit</div>
+              <div className="kpi-value">{safeNum(summary.total_records)}</div>
             </div>
             <div className="kpi-tile">
-              <div className="kpi-label">Toplam Ciro</div>
+              <div className="kpi-label">Ziyaret Edilen</div>
+              <div className="kpi-value" style={{ color: "#10b981" }}>{safeNum(summary.visited_count)}</div>
+            </div>
+            <div className="kpi-tile">
+              <div className="kpi-label">Toplam Satis</div>
               <div className="kpi-value sm">{formatTL(summary.total_revenue)}<span className="kpi-unit">TL</span></div>
             </div>
             <div className="kpi-tile">
-              <div className="kpi-label">Toplam KDV</div>
-              <div className="kpi-value sm">{formatTL(summary.total_tax)}<span className="kpi-unit">TL</span></div>
-            </div>
-            <div className="kpi-tile">
-              <div className="kpi-label">Odenen</div>
-              <div className="kpi-value" style={{ color: "#10b981" }}>{safeNum(summary.paid_count)}</div>
+              <div className="kpi-label">Ort. Satis</div>
+              <div className="kpi-value sm">{formatTL(summary.avg_sale)}<span className="kpi-unit">TL</span></div>
             </div>
           </div>
         )}
@@ -296,123 +195,116 @@ export default function Reports() {
                 ))}
               </select>
             </div>
-            <div>
-              <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 4 }}>Durum</div>
-              <select className="form-input" value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} style={{ width: 130 }}>
-                <option value="">Tumu</option>
-                <option value="draft">Taslak</option>
-                <option value="approved">Onaylandi</option>
-                <option value="paid">Odendi</option>
-                <option value="cancelled">Iptal</option>
-              </select>
-            </div>
           </div>
         </div>
 
-        {/* Disa Aktarma */}
-        <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
-          <button className="btn" onClick={handleExportExcel} style={{ background: "#10b981", color: "#fff" }}>
-            Excel'e Aktar
-          </button>
-          <button className="btn" onClick={handleExportPDF} style={{ background: "#ef4444", color: "#fff" }}>
-            PDF'e Aktar
-          </button>
-        </div>
+        {/* ST Bazli Ozet */}
+        {summary && Array.isArray(summary.rep_stats) && summary.rep_stats.length > 0 && (
+          <div className="panel" style={{ marginBottom: 16 }}>
+            <div className="panel-header"><h3>Temsilci Bazli Ozet</h3></div>
+            <div style={{ overflowX: "auto" }}>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Satis Temsilcisi</th>
+                    <th>Ziyaret Sayisi</th>
+                    <th>Toplam Satis</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {summary.rep_stats.map((rs, i) => (
+                    <tr key={i}>
+                      <td className="cell-bold">{rs.user_name || "-"}</td>
+                      <td>{safeNum(rs.visit_count)}</td>
+                      <td className="cell-mono" style={{ fontWeight: 700, color: "var(--brand)" }}>
+                        {formatTL(rs.total_sales)} TL
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
 
-        {/* Fatura Listesi */}
+        {/* Satis Kayitlari Listesi */}
         <div className="panel">
           <div className="panel-header">
-            <h3>Faturalar</h3>
-            <span className="panel-info">{invoices.length} kayit</span>
+            <h3>Satis Kayitlari</h3>
+            <span className="panel-info">
+              {sales.length} kayit &middot; {formatTL(totalSales)} TL
+            </span>
           </div>
           {loading ? (
             <div className="loading"><div className="spinner" /></div>
-          ) : invoices.length === 0 ? (
-            <div className="empty-state"><p>Fatura bulunamadi. Filtrelerinizi degistirin veya yeni fatura olusturun.</p></div>
+          ) : sales.length === 0 ? (
+            <div className="empty-state"><p>Satis kaydi bulunamadi. Filtrelerinizi degistirin.</p></div>
           ) : isMobile ? (
+            /* Mobil kart layout */
             <div style={{ padding: 12 }}>
-              {invoices.map((inv) => (
-                <div key={inv.id} style={{
-                  padding: 12, marginBottom: 8, borderRadius: 10,
+              {sales.map((v) => (
+                <div key={v.id} onClick={() => setShowDetail(v)} style={{
+                  padding: 12, marginBottom: 8, borderRadius: 10, cursor: "pointer",
                   background: "var(--bg-secondary)", border: "1px solid var(--border-light)",
                 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-                    <strong style={{ fontSize: 13 }}>{inv.invoice_no || "-"}</strong>
+                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                    <strong style={{ fontSize: 13 }}>{v.customer_name || "-"}</strong>
                     <span style={{
                       fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 6,
-                      background: (STATUS_COLORS[inv.status] || "#999") + "22",
-                      color: STATUS_COLORS[inv.status] || "#999",
-                    }}>{STATUS_MAP[inv.status] || inv.status || "-"}</span>
+                      background: v.visited === 1 ? "#10b98122" : "#ef444422",
+                      color: v.visited === 1 ? "#10b981" : "#ef4444",
+                    }}>{v.visited === 1 ? "Ziyaret Edildi" : "Edilmedi"}</span>
                   </div>
                   <div style={{ fontSize: 12, color: "var(--text-secondary)", marginBottom: 4 }}>
-                    {inv.customer_name || "-"} &middot; {inv.user_name || "-"}
+                    {v.user_name || "-"} &middot; {safeDate(v.visit_date)}
                   </div>
-                  <div style={{ fontSize: 12, color: "var(--text-secondary)", marginBottom: 6 }}>
-                    {safeDate(inv.invoice_date)}
-                  </div>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <strong style={{ fontSize: 15, color: "var(--brand)" }}>
-                      {formatTL(inv.total)} TL
-                    </strong>
-                    <div style={{ display: "flex", gap: 6 }}>
-                      <button className="btn btn-xs" onClick={() => setShowDetail(inv)}>Detay</button>
-                      <button className="btn btn-xs" onClick={() => handleInvoicePDF(inv)}>PDF</button>
+                  {v.notes && (
+                    <div style={{ fontSize: 11, color: "var(--text-secondary)", marginBottom: 4, fontStyle: "italic" }}>
+                      {v.notes.length > 60 ? v.notes.substring(0, 60) + "..." : v.notes}
                     </div>
+                  )}
+                  <div style={{ textAlign: "right" }}>
+                    <strong style={{ fontSize: 15, color: "var(--brand)" }}>
+                      {formatTL(v.sale_amount)} TL
+                    </strong>
                   </div>
                 </div>
               ))}
             </div>
           ) : (
+            /* Masaustu tablo */
             <div style={{ overflowX: "auto" }}>
               <table>
                 <thead>
                   <tr>
-                    <th>Fatura No</th>
+                    <th>#</th>
                     <th>Tarih</th>
-                    <th>Musteri</th>
                     <th>Satis Temsilcisi</th>
-                    <th>Ara Toplam</th>
-                    <th>KDV</th>
-                    <th>Toplam</th>
-                    <th>Durum</th>
-                    <th>Islemler</th>
+                    <th>Musteri</th>
+                    <th>Satis Tutari</th>
+                    <th>Ziyaret</th>
+                    <th>Notlar</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {invoices.map((inv) => (
-                    <tr key={inv.id}>
-                      <td className="cell-bold" style={{ cursor: "pointer", color: "var(--brand)" }} onClick={() => setShowDetail(inv)}>
-                        {inv.invoice_no || "-"}
-                      </td>
-                      <td>{safeDate(inv.invoice_date)}</td>
-                      <td className="cell-bold">{inv.customer_name || "-"}</td>
-                      <td>{inv.user_name || "-"}</td>
-                      <td className="cell-mono">{formatTL(inv.subtotal)} TL</td>
-                      <td className="cell-mono">{formatTL(inv.tax_amount)} TL</td>
-                      <td className="cell-mono" style={{ fontWeight: 700 }}>{formatTL(inv.total)} TL</td>
-                      <td>
-                        <select
-                          className="form-input"
-                          value={inv.status || "draft"}
-                          onChange={(e) => handleStatusChange(inv, e.target.value)}
-                          style={{
-                            width: 110, fontSize: 11, fontWeight: 700, padding: "4px 6px",
-                            color: STATUS_COLORS[inv.status] || "#999",
-                            borderColor: STATUS_COLORS[inv.status] || "#999",
-                          }}
-                        >
-                          <option value="draft">Taslak</option>
-                          <option value="approved">Onaylandi</option>
-                          <option value="paid">Odendi</option>
-                          <option value="cancelled">Iptal</option>
-                        </select>
+                  {sales.map((v, idx) => (
+                    <tr key={v.id} onClick={() => setShowDetail(v)} style={{ cursor: "pointer" }}>
+                      <td>{idx + 1}</td>
+                      <td>{safeDate(v.visit_date)}</td>
+                      <td className="cell-bold">{v.user_name || "-"}</td>
+                      <td className="cell-bold">{v.customer_name || "-"}</td>
+                      <td className="cell-mono" style={{ fontWeight: 700, color: safeNum(v.sale_amount) > 0 ? "var(--brand)" : "var(--text-secondary)" }}>
+                        {formatTL(v.sale_amount)} TL
                       </td>
                       <td>
-                        <div style={{ display: "flex", gap: 4 }}>
-                          <button className="btn btn-xs" onClick={() => setShowDetail(inv)}>Detay</button>
-                          <button className="btn btn-xs" onClick={() => handleInvoicePDF(inv)}>PDF</button>
-                          <button className="btn btn-xs btn-negative" onClick={() => handleDeleteInvoice(inv)}>Sil</button>
-                        </div>
+                        <span style={{
+                          fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 6,
+                          background: v.visited === 1 ? "#10b98122" : "#ef444422",
+                          color: v.visited === 1 ? "#10b981" : "#ef4444",
+                        }}>{v.visited === 1 ? "Evet" : "Hayir"}</span>
+                      </td>
+                      <td style={{ fontSize: 12, color: "var(--text-secondary)", maxWidth: 250, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {v.notes || "-"}
                       </td>
                     </tr>
                   ))}
@@ -423,201 +315,70 @@ export default function Reports() {
         </div>
       </div>
 
-      {/* Fatura Detay Dialog */}
+      {/* Detay Dialog */}
       {showDetail && (
         <div className="dialog-overlay" onClick={() => setShowDetail(null)}>
-          <div className="dialog" onClick={(e) => e.stopPropagation()} style={{ maxWidth: isMobile ? "95vw" : 650 }}>
+          <div className="dialog" onClick={(e) => e.stopPropagation()} style={{ maxWidth: isMobile ? "95vw" : 500 }}>
             <div className="dialog-header">
-              <h2>Fatura Detay - {showDetail.invoice_no || ""}</h2>
+              <h2>Satis Detayi</h2>
               <button className="dialog-close" onClick={() => setShowDetail(null)}>x</button>
             </div>
             <div className="dialog-body">
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 20 }}>
                 <div>
-                  <div style={{ fontSize: 11, color: "var(--text-secondary)" }}>Musteri</div>
-                  <div style={{ fontWeight: 700 }}>{showDetail.customer_name || "-"}</div>
+                  <div style={{ fontSize: 11, color: "var(--text-secondary)", marginBottom: 2 }}>Musteri</div>
+                  <div style={{ fontWeight: 700, fontSize: 15 }}>{showDetail.customer_name || "-"}</div>
                 </div>
                 <div>
-                  <div style={{ fontSize: 11, color: "var(--text-secondary)" }}>Satis Temsilcisi</div>
+                  <div style={{ fontSize: 11, color: "var(--text-secondary)", marginBottom: 2 }}>Satis Temsilcisi</div>
                   <div style={{ fontWeight: 700 }}>{showDetail.user_name || "-"}</div>
                 </div>
                 <div>
-                  <div style={{ fontSize: 11, color: "var(--text-secondary)" }}>Tarih</div>
-                  <div style={{ fontWeight: 600 }}>{safeDate(showDetail.invoice_date)}</div>
+                  <div style={{ fontSize: 11, color: "var(--text-secondary)", marginBottom: 2 }}>Tarih</div>
+                  <div style={{ fontWeight: 600 }}>{safeDate(showDetail.visit_date)}</div>
                 </div>
                 <div>
-                  <div style={{ fontSize: 11, color: "var(--text-secondary)" }}>Durum</div>
-                  <div style={{ fontWeight: 700, color: STATUS_COLORS[showDetail.status] || "#999" }}>
-                    {STATUS_MAP[showDetail.status] || showDetail.status || "-"}
-                  </div>
+                  <div style={{ fontSize: 11, color: "var(--text-secondary)", marginBottom: 2 }}>Ziyaret Durumu</div>
+                  <div style={{
+                    fontWeight: 700,
+                    color: showDetail.visited === 1 ? "#10b981" : "#ef4444",
+                  }}>{showDetail.visited === 1 ? "Ziyaret Edildi" : "Ziyaret Edilmedi"}</div>
                 </div>
-                {showDetail.customer_tax_number && (
+                {showDetail.check_in_at && (
                   <div>
-                    <div style={{ fontSize: 11, color: "var(--text-secondary)" }}>Vergi No</div>
-                    <div style={{ fontWeight: 600 }}>{showDetail.customer_tax_number}</div>
+                    <div style={{ fontSize: 11, color: "var(--text-secondary)", marginBottom: 2 }}>Giris Saati</div>
+                    <div style={{ fontWeight: 600 }}>{showDetail.check_in_at}</div>
                   </div>
                 )}
-                {showDetail.customer_tax_office && (
+                {showDetail.check_out_at && (
                   <div>
-                    <div style={{ fontSize: 11, color: "var(--text-secondary)" }}>Vergi Dairesi</div>
-                    <div style={{ fontWeight: 600 }}>{showDetail.customer_tax_office}</div>
-                  </div>
-                )}
-                {showDetail.customer_address && (
-                  <div style={{ gridColumn: "1 / -1" }}>
-                    <div style={{ fontSize: 11, color: "var(--text-secondary)" }}>Adres</div>
-                    <div style={{ fontWeight: 600 }}>{showDetail.customer_address}</div>
+                    <div style={{ fontSize: 11, color: "var(--text-secondary)", marginBottom: 2 }}>Cikis Saati</div>
+                    <div style={{ fontWeight: 600 }}>{showDetail.check_out_at}</div>
                   </div>
                 )}
               </div>
 
-              {Array.isArray(showDetail.items) && showDetail.items.length > 0 && (
-                <div style={{ marginBottom: 16 }}>
-                  <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 8 }}>Urun Kalemleri</div>
-                  <table style={{ fontSize: 12 }}>
-                    <thead>
-                      <tr><th>Urun</th><th>Miktar</th><th>Birim Fiyat</th><th>Tutar</th></tr>
-                    </thead>
-                    <tbody>
-                      {showDetail.items.map((it, idx) => (
-                        <tr key={it.id || idx}>
-                          <td>{it.product_name || "-"}</td>
-                          <td>{safeNum(it.quantity)} {it.unit || ""}</td>
-                          <td className="cell-mono">{formatTL(it.unit_price)} TL</td>
-                          <td className="cell-mono">{formatTL(it.line_total)} TL</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-
-              <div style={{ background: "var(--bg-secondary)", borderRadius: 10, padding: 16 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-                  <span>Ara Toplam:</span>
-                  <strong>{formatTL(showDetail.subtotal)} TL</strong>
-                </div>
-                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-                  <span>KDV (%{safeNum(showDetail.tax_rate)}):</span>
-                  <strong>{formatTL(showDetail.tax_amount)} TL</strong>
-                </div>
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 16, fontWeight: 800, color: "var(--brand)", borderTop: "2px solid var(--border)", paddingTop: 8 }}>
-                  <span>GENEL TOPLAM:</span>
-                  <span>{formatTL(showDetail.total)} TL</span>
+              <div style={{ background: "var(--bg-secondary)", borderRadius: 10, padding: 16, marginBottom: 16 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 18, fontWeight: 800, color: "var(--brand)" }}>
+                  <span>Satis Tutari</span>
+                  <span>{formatTL(showDetail.sale_amount)} TL</span>
                 </div>
               </div>
 
               {showDetail.notes && (
-                <div style={{ marginTop: 12, fontSize: 13, color: "var(--text-secondary)" }}>
-                  <strong>Notlar:</strong> {showDetail.notes}
-                </div>
-              )}
-
-              <div style={{ display: "flex", gap: 8, marginTop: 16, justifyContent: "flex-end" }}>
-                <button className="btn" onClick={() => handleInvoicePDF(showDetail)} style={{ background: "#ef4444", color: "#fff" }}>
-                  PDF Indir
-                </button>
-                <button className="btn" onClick={() => setShowDetail(null)}>Kapat</button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Yeni Fatura Dialog */}
-      {showDialog && (
-        <div className="dialog-overlay" onClick={() => setShowDialog(false)}>
-          <div className="dialog" onClick={(e) => e.stopPropagation()} style={{ maxWidth: isMobile ? "95vw" : 650 }}>
-            <div className="dialog-header">
-              <h2>Yeni Fatura Olustur</h2>
-              <button className="dialog-close" onClick={() => setShowDialog(false)}>x</button>
-            </div>
-            <div className="dialog-body">
-              <div className="seg-bar" style={{ marginBottom: 16 }}>
-                <button className={`seg-item ${formMode === "quick" ? "active" : ""}`} onClick={() => setFormMode("quick")}>
-                  Hizli Fis
-                </button>
-                <button className={`seg-item ${formMode === "detailed" ? "active" : ""}`} onClick={() => setFormMode("detailed")}>
-                  Detayli Fatura
-                </button>
-              </div>
-
-              <div className="form-group">
-                <label>Musteri</label>
-                <select className="form-input" value={formCustomer} onChange={(e) => setFormCustomer(e.target.value)}>
-                  <option value="">Musteri Secin...</option>
-                  {customers.map((c) => (
-                    <option key={c.id} value={c.id}>{c.name || "?"}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                <div className="form-group">
-                  <label>Tarih</label>
-                  <input className="form-input" type="date" value={formDate} onChange={(e) => setFormDate(e.target.value)} />
-                </div>
-                <div className="form-group">
-                  <label>KDV Orani (%)</label>
-                  <input className="form-input" type="number" value={formTaxRate} onChange={(e) => setFormTaxRate(Number(e.target.value) || 0)} />
-                </div>
-              </div>
-
-              {formMode === "quick" ? (
-                <div className="form-group">
-                  <label>Toplam Tutar (KDV Haric)</label>
-                  <input className="form-input" type="number" placeholder="0.00" value={formQuickTotal} onChange={(e) => setFormQuickTotal(e.target.value)} />
-                  {formQuickTotal && (
-                    <div style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 4 }}>
-                      KDV: {formatTL(quickTotal * taxRate / 100)} TL &middot;
-                      Toplam: {formatTL(quickTotal * (1 + taxRate / 100))} TL
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div>
-                  <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 8 }}>Urun Kalemleri</div>
-                  {formItems.map((item, i) => (
-                    <div key={i} style={{ display: "flex", gap: 8, marginBottom: 8, alignItems: "center", flexWrap: "wrap" }}>
-                      <input className="form-input" placeholder="Urun adi" value={item.product_name || ""}
-                        onChange={(e) => updateItem(i, "product_name", e.target.value)}
-                        style={{ flex: 2, minWidth: 120 }} />
-                      <input className="form-input" type="number" placeholder="Miktar" value={item.quantity}
-                        onChange={(e) => updateItem(i, "quantity", Number(e.target.value) || 0)}
-                        style={{ width: 70 }} />
-                      <input className="form-input" placeholder="Birim" value={item.unit || ""}
-                        onChange={(e) => updateItem(i, "unit", e.target.value)}
-                        style={{ width: 70 }} />
-                      <input className="form-input" type="number" placeholder="Fiyat" value={item.unit_price}
-                        onChange={(e) => updateItem(i, "unit_price", Number(e.target.value) || 0)}
-                        style={{ width: 90 }} />
-                      <span style={{ fontSize: 12, fontWeight: 700, minWidth: 70, textAlign: "right" }}>
-                        {formatTL(safeNum(item.quantity) * safeNum(item.unit_price))} TL
-                      </span>
-                      {formItems.length > 1 && (
-                        <button className="btn btn-xs btn-negative" onClick={() => removeItem(i)}>x</button>
-                      )}
-                    </div>
-                  ))}
-                  <button className="btn btn-sm" onClick={addItem} style={{ marginBottom: 8 }}>+ Kalem Ekle</button>
-                  <div style={{ fontSize: 13, fontWeight: 700, textAlign: "right", color: "var(--brand)" }}>
-                    Ara Toplam: {formatTL(detailedSubtotal)} TL &middot;
-                    KDV: {formatTL(detailedSubtotal * taxRate / 100)} TL &middot;
-                    Toplam: {formatTL(detailedSubtotal * (1 + taxRate / 100))} TL
+                <div style={{ marginBottom: 16 }}>
+                  <div style={{ fontSize: 11, color: "var(--text-secondary)", marginBottom: 4 }}>Notlar</div>
+                  <div style={{
+                    padding: 12, borderRadius: 8, background: "var(--bg-secondary)",
+                    fontSize: 13, lineHeight: 1.5, color: "var(--text)",
+                  }}>
+                    {showDetail.notes}
                   </div>
                 </div>
               )}
 
-              <div className="form-group">
-                <label>Notlar</label>
-                <textarea className="form-input" rows={2} value={formNotes} onChange={(e) => setFormNotes(e.target.value)} placeholder="Siparis veya fatura notu..." />
-              </div>
-
-              <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 16 }}>
-                <button className="btn" onClick={() => setShowDialog(false)}>Iptal</button>
-                <button className="btn btn-emphasized" onClick={handleCreateInvoice} disabled={saving}>
-                  {saving ? "Kaydediliyor..." : "Fatura Olustur"}
-                </button>
+              <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                <button className="btn" onClick={() => setShowDetail(null)}>Kapat</button>
               </div>
             </div>
           </div>
