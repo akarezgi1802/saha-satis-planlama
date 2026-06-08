@@ -179,11 +179,11 @@ export default function Performance() {
                   <table>
                     <thead>
                       <tr>
-                        <th>Musteri</th>
-                        <th>Satis</th>
-                        <th>Giris</th>
-                        <th>Cikis</th>
-                        <th>Sure</th>
+                        <th>Müşteri</th>
+                        <th>Satış</th>
+                        <th>Giriş</th>
+                        <th>Çıkış</th>
+                        <th>Süre</th>
                         <th>Not</th>
                         <th></th>
                       </tr>
@@ -232,11 +232,11 @@ export default function Performance() {
                   <thead>
                     <tr>
                       <th>Tarih</th>
-                      <th>Musteri</th>
-                      <th>Satis Tutari</th>
-                      <th>Giris</th>
-                      <th>Cikis</th>
-                      <th>Sure</th>
+                      <th>Müşteri</th>
+                      <th>Satış Tutarı</th>
+                      <th>Giriş</th>
+                      <th>Çıkış</th>
+                      <th>Süre</th>
                       <th>Not</th>
                       <th></th>
                     </tr>

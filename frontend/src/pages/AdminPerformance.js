@@ -131,10 +131,10 @@ export default function AdminPerformance() {
 
             <div className="tab-bar">
               {[
-                { key: "overview", label: "Genel Bakis" },
-                { key: "comparison", label: "Karsilastirma" },
-                { key: "details", label: "Detay Kayitlar" },
-                { key: "distance", label: "Mesafe & Sure" },
+                { key: "overview", label: "Genel Bakış" },
+                { key: "comparison", label: "Karşılaştırma" },
+                { key: "details", label: "Detay Kayıtlar" },
+                { key: "distance", label: "Mesafe & Süre" },
                 { key: "carbon", label: "Karbon" },
               ].map((t) => (
                 <button key={t.key} className={`tab-item ${tab === t.key ? "active" : ""}`} onClick={() => setTab(t.key)}>
@@ -381,12 +381,12 @@ export default function AdminPerformance() {
                       <thead>
                         <tr>
                           <th>Tarih</th>
-                          <th>Satis Temsilcisi</th>
-                          <th>Musteri</th>
-                          <th>Satis Tutari</th>
-                          <th>Giris</th>
-                          <th>Cikis</th>
-                          <th>Sure</th>
+                          <th>Satış Temsilcisi</th>
+                          <th>Müşteri</th>
+                          <th>Satış Tutarı</th>
+                          <th>Giriş</th>
+                          <th>Çıkış</th>
+                          <th>Süre</th>
                           <th>Mesafe</th>
                           <th>Not</th>
                         </tr>
@@ -427,12 +427,12 @@ export default function AdminPerformance() {
             {tab === "distance" && (
               <div className="panel">
                 <div className="panel-header">
-                  <h3>Tahmini vs Gerceklesen Mesafe & Sure</h3>
-                  <span className="panel-info">ST bazli karsilastirma</span>
+                  <h3>Tahmini vs Gerçekleşen Mesafe & Süre</h3>
+                  <span className="panel-info">ST bazlı karşılaştırma</span>
                 </div>
                 {!comparison || comparison.length === 0 ? (
                   <div className="empty-state" style={{ padding: 40, textAlign: "center" }}>
-                    <p>Bu donem icin mesafe/sure karsilastirma verisi bulunamadi.</p>
+                    <p>Bu dönem için mesafe/süre karşılaştırma verisi bulunamadı.</p>
                   </div>
                 ) : (
                   <>
@@ -440,13 +440,13 @@ export default function AdminPerformance() {
                       <table>
                         <thead>
                           <tr>
-                            <th>Satis Temsilcisi</th>
+                            <th>Satış Temsilcisi</th>
                             <th>Tahmini Mesafe</th>
-                            <th>Gercek Mesafe</th>
+                            <th>Gerçek Mesafe</th>
                             <th>Mesafe Fark</th>
-                            <th>Tahmini Sure</th>
-                            <th>Gercek Sure</th>
-                            <th>Sure Fark</th>
+                            <th>Tahmini Süre</th>
+                            <th>Gerçek Süre</th>
+                            <th>Süre Fark</th>
                             <th>Ziyaret</th>
                           </tr>
                         </thead>
@@ -477,7 +477,7 @@ export default function AdminPerformance() {
 
                     <div className="grid-2" style={{ marginTop: 20 }}>
                       <div className="panel" style={{ border: "none", boxShadow: "none" }}>
-                        <div className="panel-header"><h3>Mesafe Karsilastirmasi (km)</h3></div>
+                        <div className="panel-header"><h3>Mesafe Karşılaştırması (km)</h3></div>
                         <ResponsiveContainer width="100%" height={300}>
                           <BarChart data={comparison.map(c => ({ name: (c.user_name || "").split(" ")[0], tahmini: Number((c.estimated_distance || 0).toFixed(1)), gercek: Number((c.actual_distance || 0).toFixed(1)) }))}>
                             <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
@@ -486,12 +486,12 @@ export default function AdminPerformance() {
                             <Tooltip />
                             <Legend />
                             <Bar dataKey="tahmini" name="Tahmini" fill="#6366f1" radius={[4, 4, 0, 0]} />
-                            <Bar dataKey="gercek" name="Gerceklesen" fill="#10b981" radius={[4, 4, 0, 0]} />
+                            <Bar dataKey="gercek" name="Gerçekleşen" fill="#10b981" radius={[4, 4, 0, 0]} />
                           </BarChart>
                         </ResponsiveContainer>
                       </div>
                       <div className="panel" style={{ border: "none", boxShadow: "none" }}>
-                        <div className="panel-header"><h3>Sure Karsilastirmasi (dk)</h3></div>
+                        <div className="panel-header"><h3>Süre Karşılaştırması (dk)</h3></div>
                         <ResponsiveContainer width="100%" height={300}>
                           <BarChart data={comparison.map(c => ({ name: (c.user_name || "").split(" ")[0], tahmini: Math.round(c.estimated_time || 0), gercek: Math.round(c.actual_time || 0) }))}>
                             <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
@@ -500,7 +500,7 @@ export default function AdminPerformance() {
                             <Tooltip />
                             <Legend />
                             <Bar dataKey="tahmini" name="Tahmini" fill="#f59e0b" radius={[4, 4, 0, 0]} />
-                            <Bar dataKey="gercek" name="Gerceklesen" fill="#ef4444" radius={[4, 4, 0, 0]} />
+                            <Bar dataKey="gercek" name="Gerçekleşen" fill="#ef4444" radius={[4, 4, 0, 0]} />
                           </BarChart>
                         </ResponsiveContainer>
                       </div>
@@ -514,11 +514,11 @@ export default function AdminPerformance() {
               <div className="panel">
                 <div className="panel-header">
                   <h3>Karbon Emisyonu Analizi</h3>
-                  <span className="panel-info">ST bazli CO2 emisyonu</span>
+                  <span className="panel-info">ST bazlı CO2 emisyonu</span>
                 </div>
                 {!comparison || comparison.length === 0 ? (
                   <div className="empty-state" style={{ padding: 40, textAlign: "center" }}>
-                    <p>Bu donem icin karbon emisyonu verisi bulunamadi.</p>
+                    <p>Bu dönem için karbon emisyonu verisi bulunamadı.</p>
                   </div>
                 ) : (
                   <>
@@ -526,10 +526,10 @@ export default function AdminPerformance() {
                       <table>
                         <thead>
                           <tr>
-                            <th>Satis Temsilcisi</th>
-                            <th>Arac Tipi</th>
+                            <th>Satış Temsilcisi</th>
+                            <th>Araç Tipi</th>
                             <th>Mesafe (km)</th>
-                            <th>Yakit (L)</th>
+                            <th>Yakıt (L)</th>
                             <th>CO2 (kg)</th>
                             <th>Ziyaret</th>
                             <th>CO2/Ziyaret</th>
@@ -541,7 +541,7 @@ export default function AdminPerformance() {
                             return (
                               <tr key={i}>
                                 <td className="cell-bold">{c.user_name}</td>
-                                <td>{c.vehicle_type || "Varsayilan"}</td>
+                                <td>{c.vehicle_type || "Varsayılan"}</td>
                                 <td className="cell-mono">{(c.actual_distance || 0).toFixed(1)}</td>
                                 <td className="cell-mono">{(c.fuel_consumed || 0).toFixed(2)}</td>
                                 <td className="cell-mono" style={{ fontWeight: 600, color: "#ef4444" }}>{(c.co2_kg || 0).toFixed(2)}</td>
@@ -556,7 +556,7 @@ export default function AdminPerformance() {
 
                     <div className="grid-2" style={{ marginTop: 20 }}>
                       <div className="panel" style={{ border: "none", boxShadow: "none" }}>
-                        <div className="panel-header"><h3>ST Bazli CO2 Emisyonu (kg)</h3></div>
+                        <div className="panel-header"><h3>ST Bazlı CO2 Emisyonu (kg)</h3></div>
                         <ResponsiveContainer width="100%" height={300}>
                           <BarChart data={comparison.map(c => ({ name: (c.user_name || "").split(" ")[0], co2: Number((c.co2_kg || 0).toFixed(2)) }))}>
                             <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
@@ -568,7 +568,7 @@ export default function AdminPerformance() {
                         </ResponsiveContainer>
                       </div>
                       <div className="panel" style={{ border: "none", boxShadow: "none" }}>
-                        <div className="panel-header"><h3>CO2 Dagilimi</h3></div>
+                        <div className="panel-header"><h3>CO2 Dağılımı</h3></div>
                         <ResponsiveContainer width="100%" height={300}>
                           <PieChart>
                             <Pie

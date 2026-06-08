@@ -11,8 +11,29 @@ from ..database import get_db
 from ..models import SalesVisit, Customer, User
 from ..auth import get_current_user, require_admin, SECRET_KEY, ALGORITHM
 from jose import jwt
+import os
 
 router = APIRouter(prefix="/api/reports", tags=["reports"])
+
+# ── Turkce karakter destekli PDF fontu (DejaVuSans) ──
+_FONT_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "fonts")
+_PDF_FONT = "Helvetica"
+_PDF_FONT_BOLD = "Helvetica-Bold"
+try:
+    from reportlab.pdfbase import pdfmetrics
+    from reportlab.pdfbase.ttfonts import TTFont
+    from reportlab.pdfbase.pdfmetrics import registerFontFamily
+
+    pdfmetrics.registerFont(TTFont("DejaVuSans", os.path.join(_FONT_DIR, "DejaVuSans.ttf")))
+    pdfmetrics.registerFont(TTFont("DejaVuSans-Bold", os.path.join(_FONT_DIR, "DejaVuSans-Bold.ttf")))
+    registerFontFamily(
+        "DejaVuSans", normal="DejaVuSans", bold="DejaVuSans-Bold",
+        italic="DejaVuSans", boldItalic="DejaVuSans-Bold",
+    )
+    _PDF_FONT = "DejaVuSans"
+    _PDF_FONT_BOLD = "DejaVuSans-Bold"
+except Exception:
+    pass
 
 
 def _get_user_from_token(token: str, db: Session) -> User:
@@ -198,7 +219,7 @@ def export_excel(
 
     # Baslik
     ws.merge_cells("A1:G1")
-    ws["A1"] = "Satis Raporu"
+    ws["A1"] = "Satış Raporu"
     ws["A1"].font = Font(bold=True, size=14, color="FFFFFF")
     ws["A1"].fill = PatternFill(start_color="2563EB", end_color="2563EB", fill_type="solid")
     ws["A1"].alignment = Alignment(horizontal="center", vertical="center")
@@ -206,18 +227,18 @@ def export_excel(
 
     # Tarih bilgisi
     ws.merge_cells("A2:G2")
-    tarih_text = "Tum Tarihler"
+    tarih_text = "Tüm Tarihler"
     if start_date and end_date:
         tarih_text = f"{start_date} - {end_date}"
     elif start_date:
         tarih_text = f"{start_date} itibariyle"
-    ws["A2"] = f"Donem: {tarih_text} | Toplam: {len(visits)} kayit"
+    ws["A2"] = f"Dönem: {tarih_text} | Toplam: {len(visits)} kayıt"
     ws["A2"].font = Font(size=10, color="666666")
     ws["A2"].alignment = Alignment(horizontal="center")
     ws.row_dimensions[2].height = 22
 
     # Basliklar
-    headers = ["#", "Tarih", "Satis Temsilcisi", "Musteri", "Satis Tutari (TL)", "Ziyaret", "Notlar"]
+    headers = ["#", "Tarih", "Satış Temsilcisi", "Müşteri", "Satış Tutarı (TL)", "Ziyaret", "Notlar"]
     header_fill = PatternFill(start_color="F1F5F9", end_color="F1F5F9", fill_type="solid")
     header_font = Font(bold=True, size=10, color="334155")
     thin_border = Border(
@@ -244,7 +265,7 @@ def export_excel(
         total_sales += amount
         amt_cell = ws.cell(row=row, column=5, value=amount)
         amt_cell.number_format = '#,##0.00'
-        ws.cell(row=row, column=6, value="Evet" if v.visited == 1 else "Hayir")
+        ws.cell(row=row, column=6, value="Evet" if v.visited == 1 else "Hayır")
         ws.cell(row=row, column=7, value=v.notes or "-")
 
         for col in range(1, 8):
@@ -323,15 +344,17 @@ def export_pdf(
     story = []
 
     # Baslik
-    title_style = ParagraphStyle("title", parent=styles["Title"], fontSize=16, textColor=colors.HexColor("#1e3a5f"))
-    story.append(Paragraph("Satis Raporu", title_style))
+    title_style = ParagraphStyle("title", parent=styles["Title"], fontSize=16,
+                                 textColor=colors.HexColor("#1e3a5f"), fontName=_PDF_FONT_BOLD)
+    story.append(Paragraph("Satış Raporu", title_style))
     story.append(Spacer(1, 8))
 
-    tarih_text = "Tum Tarihler"
+    tarih_text = "Tüm Tarihler"
     if start_date and end_date:
         tarih_text = f"{start_date} - {end_date}"
-    info_style = ParagraphStyle("info", parent=styles["Normal"], fontSize=9, textColor=colors.grey)
-    story.append(Paragraph(f"Donem: {tarih_text}  |  Toplam: {len(visits)} kayit  |  Olusturma: {datetime.now().strftime('%d.%m.%Y %H:%M')}", info_style))
+    info_style = ParagraphStyle("info", parent=styles["Normal"], fontSize=9,
+                                textColor=colors.grey, fontName=_PDF_FONT)
+    story.append(Paragraph(f"Dönem: {tarih_text}  |  Toplam: {len(visits)} kayıt  |  Oluşturma: {datetime.now().strftime('%d.%m.%Y %H:%M')}", info_style))
     story.append(Spacer(1, 14))
 
     # Ozet
@@ -339,13 +362,15 @@ def export_pdf(
     visited = sum(1 for v in visits if v.visited == 1)
     avg = total_sales / visited if visited > 0 else 0
     summary_data = [
-        ["Toplam Kayit", "Ziyaret Edilen", "Toplam Satis", "Ortalama Satis"],
+        ["Toplam Kayıt", "Ziyaret Edilen", "Toplam Satış", "Ortalama Satış"],
         [str(len(visits)), str(visited), f"{total_sales:,.0f} TL", f"{avg:,.0f} TL"],
     ]
     summary_table = Table(summary_data, colWidths=[6*cm, 5*cm, 6*cm, 6*cm])
     summary_table.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#2563EB")),
         ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("FONTNAME", (0, 0), (-1, 0), _PDF_FONT_BOLD),
+        ("FONTNAME", (0, 1), (-1, 1), _PDF_FONT),
         ("FONTSIZE", (0, 0), (-1, 0), 9),
         ("FONTSIZE", (0, 1), (-1, 1), 12),
         ("ALIGN", (0, 0), (-1, -1), "CENTER"),
@@ -357,8 +382,8 @@ def export_pdf(
     story.append(Spacer(1, 16))
 
     # Detay tablosu
-    note_style = ParagraphStyle("note", parent=styles["Normal"], fontSize=7, leading=9)
-    header = ["#", "Tarih", "Satis Temsilcisi", "Musteri", "Tutar (TL)", "Ziyaret", "Notlar"]
+    note_style = ParagraphStyle("note", parent=styles["Normal"], fontSize=7, leading=9, fontName=_PDF_FONT)
+    header = ["#", "Tarih", "Satış Temsilcisi", "Müşteri", "Tutar (TL)", "Ziyaret", "Notlar"]
     data = [header]
     for i, v in enumerate(visits, 1):
         notes_text = (v.notes or "-")[:80]
@@ -368,7 +393,7 @@ def export_pdf(
             v.user.full_name if v.user else "-",
             v.customer.name if v.customer else "-",
             f"{v.sale_amount or 0:,.0f}",
-            "Evet" if v.visited == 1 else "Hayir",
+            "Evet" if v.visited == 1 else "Hayır",
             Paragraph(notes_text, note_style),
         ])
 
@@ -377,6 +402,8 @@ def export_pdf(
     detail_table.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1e3a5f")),
         ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("FONTNAME", (0, 0), (-1, 0), _PDF_FONT_BOLD),
+        ("FONTNAME", (0, 1), (-1, -1), _PDF_FONT),
         ("FONTSIZE", (0, 0), (-1, 0), 8),
         ("FONTSIZE", (0, 1), (-1, -1), 7),
         ("ALIGN", (0, 0), (-1, -1), "CENTER"),

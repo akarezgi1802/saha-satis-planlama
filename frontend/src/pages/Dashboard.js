@@ -322,7 +322,7 @@ export default function Dashboard() {
               <div className="panel-header"><h3>Karbon Emisyonu (CO2)</h3></div>
               <div className="kpi-strip" style={{ padding: "12px 16px" }}>
                 <div className="kpi-tile">
-                  <div className="kpi-label">Gunluk Ort.</div>
+                  <div className="kpi-label">Günlük Ort.</div>
                   <div className="kpi-value sm">
                     {carbonSummary.this_week?.avg_daily_co2_kg || 0}
                     <span className="kpi-unit">kg</span>
@@ -343,7 +343,7 @@ export default function Dashboard() {
                   </div>
                 </div>
                 <div className="kpi-tile">
-                  <div className="kpi-label">Ziyaret Basina</div>
+                  <div className="kpi-label">Ziyaret Başına</div>
                   <div className="kpi-value sm">
                     {carbonSummary.this_month?.co2_per_visit_kg || 0}
                     <span className="kpi-unit">kg</span>
@@ -353,9 +353,9 @@ export default function Dashboard() {
             </div>
 
             <div className="grid-2" style={{ marginBottom: 16 }}>
-              {/* Gunluk CO2 Bar Chart */}
+              {/* Günlük CO2 Bar Chart */}
               <div className="panel" style={{ marginBottom: 0 }}>
-                <div className="panel-header"><h3>Bu Hafta Gunluk CO2</h3></div>
+                <div className="panel-header"><h3>Bu Hafta Günlük CO2</h3></div>
                 <div style={{ padding: "8px 12px" }}>
                   <ResponsiveContainer width="100%" height={220}>
                     <BarChart data={carbonDaily}>
@@ -375,9 +375,9 @@ export default function Dashboard() {
                 </div>
               </div>
 
-              {/* Haftalik CO2 Trend */}
+              {/* Haftalık CO2 Trend */}
               <div className="panel" style={{ marginBottom: 0 }}>
-                <div className="panel-header"><h3>Haftalik CO2 Trendi</h3></div>
+                <div className="panel-header"><h3>Haftalık CO2 Trendi</h3></div>
                 <div style={{ padding: "8px 12px" }}>
                   <ResponsiveContainer width="100%" height={220}>
                     <AreaChart data={carbonWeekly}>

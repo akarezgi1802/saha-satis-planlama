@@ -109,7 +109,7 @@ export default function Reports() {
   return (
     <div>
       <div className="page-toolbar">
-        <h1>Satis Raporlari</h1>
+        <h1>Satış Raporları</h1>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           <button className="btn" onClick={handleExportExcel} style={{ background: "#10b981", color: "#fff" }}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{marginRight:4,verticalAlign:"middle"}}><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
@@ -133,7 +133,7 @@ export default function Reports() {
         {summary && (
           <div className="kpi-strip">
             <div className="kpi-tile">
-              <div className="kpi-label">Toplam Kayit</div>
+              <div className="kpi-label">Toplam Kayıt</div>
               <div className="kpi-value">{safeNum(summary.total_records)}</div>
             </div>
             <div className="kpi-tile">
@@ -141,11 +141,11 @@ export default function Reports() {
               <div className="kpi-value" style={{ color: "#10b981" }}>{safeNum(summary.visited_count)}</div>
             </div>
             <div className="kpi-tile">
-              <div className="kpi-label">Toplam Satis</div>
+              <div className="kpi-label">Toplam Satış</div>
               <div className="kpi-value sm">{formatTL(summary.total_revenue)}<span className="kpi-unit">TL</span></div>
             </div>
             <div className="kpi-tile">
-              <div className="kpi-label">Ort. Satis</div>
+              <div className="kpi-label">Ort. Satış</div>
               <div className="kpi-value sm">{formatTL(summary.avg_sale)}<span className="kpi-unit">TL</span></div>
             </div>
           </div>
@@ -156,10 +156,10 @@ export default function Reports() {
           <div className="panel-header"><h3>Filtreler</h3></div>
           <div style={{ padding: 16, display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-end" }}>
             <div>
-              <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 4 }}>Donem</div>
+              <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 4 }}>Dönem</div>
               <select className="form-input" value={period} onChange={(e) => setPeriod(e.target.value)} style={{ width: 140 }}>
-                <option value="">Tumu</option>
-                <option value="today">Bugun</option>
+                <option value="">Tümü</option>
+                <option value="today">Bugün</option>
                 <option value="week">Bu Hafta</option>
                 <option value="month">Bu Ay</option>
               </select>
@@ -167,27 +167,27 @@ export default function Reports() {
             {!period && (
               <>
                 <div>
-                  <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 4 }}>Baslangic</div>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 4 }}>Başlangıç</div>
                   <input className="form-input" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} style={{ width: 150 }} />
                 </div>
                 <div>
-                  <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 4 }}>Bitis</div>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 4 }}>Bitiş</div>
                   <input className="form-input" type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} style={{ width: 150 }} />
                 </div>
                 <button className="btn btn-emphasized btn-sm" onClick={loadData}>Ara</button>
               </>
             )}
             <div>
-              <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 4 }}>Satis Temsilcisi</div>
+              <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 4 }}>Satış Temsilcisi</div>
               <select className="form-input" value={filterUser} onChange={(e) => setFilterUser(e.target.value)} style={{ width: 160 }}>
-                <option value="">Tumu</option>
+                <option value="">Tümü</option>
                 {users.filter((u) => u && u.role === "sales_rep").map((u) => (
                   <option key={u.id} value={u.id}>{u.full_name || "?"}</option>
                 ))}
               </select>
             </div>
             <div>
-              <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 4 }}>Musteri</div>
+              <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 4 }}>Müşteri</div>
               <MultiCustomerSelect
                 customers={customers}
                 selected={filterCustomers}
@@ -200,14 +200,14 @@ export default function Reports() {
         {/* ST Bazli Ozet */}
         {summary && Array.isArray(summary.rep_stats) && summary.rep_stats.length > 0 && (
           <div className="panel" style={{ marginBottom: 16 }}>
-            <div className="panel-header"><h3>Temsilci Bazli Ozet</h3></div>
+            <div className="panel-header"><h3>Temsilci Bazlı Özet</h3></div>
             <div style={{ overflowX: "auto" }}>
               <table>
                 <thead>
                   <tr>
-                    <th>Satis Temsilcisi</th>
-                    <th>Ziyaret Sayisi</th>
-                    <th>Toplam Satis</th>
+                    <th>Satış Temsilcisi</th>
+                    <th>Ziyaret Sayısı</th>
+                    <th>Toplam Satış</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -229,15 +229,15 @@ export default function Reports() {
         {/* Satis Kayitlari Listesi */}
         <div className="panel">
           <div className="panel-header">
-            <h3>Satis Kayitlari</h3>
+            <h3>Satış Kayıtları</h3>
             <span className="panel-info">
-              {sales.length} kayit &middot; {formatTL(totalSales)} TL
+              {sales.length} kayıt &middot; {formatTL(totalSales)} TL
             </span>
           </div>
           {loading ? (
             <div className="loading"><div className="spinner" /></div>
           ) : sales.length === 0 ? (
-            <div className="empty-state"><p>Satis kaydi bulunamadi. Filtrelerinizi degistirin.</p></div>
+            <div className="empty-state"><p>Satış kaydı bulunamadı. Filtrelerinizi değiştirin.</p></div>
           ) : isMobile ? (
             /* Mobil kart layout */
             <div style={{ padding: 12 }}>
@@ -278,9 +278,9 @@ export default function Reports() {
                   <tr>
                     <th>#</th>
                     <th>Tarih</th>
-                    <th>Satis Temsilcisi</th>
-                    <th>Musteri</th>
-                    <th>Satis Tutari</th>
+                    <th>Satış Temsilcisi</th>
+                    <th>Müşteri</th>
+                    <th>Satış Tutarı</th>
                     <th>Ziyaret</th>
                     <th>Notlar</th>
                   </tr>
@@ -300,7 +300,7 @@ export default function Reports() {
                           fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 6,
                           background: v.visited === 1 ? "#10b98122" : "#ef444422",
                           color: v.visited === 1 ? "#10b981" : "#ef4444",
-                        }}>{v.visited === 1 ? "Evet" : "Hayir"}</span>
+                        }}>{v.visited === 1 ? "Evet" : "Hayır"}</span>
                       </td>
                       <td style={{ fontSize: 12, color: "var(--text-secondary)", maxWidth: 250, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                         {v.notes || "-"}
@@ -310,7 +310,7 @@ export default function Reports() {
                 </tbody>
                 <tfoot>
                   <tr style={{ borderTop: "2px solid var(--border)", fontWeight: 800, background: "var(--bg-secondary)" }}>
-                    <td colSpan={4} style={{ textAlign: "right", padding: "12px 8px" }}>TOPLAM ({sales.length} kayit)</td>
+                    <td colSpan={4} style={{ textAlign: "right", padding: "12px 8px" }}>TOPLAM ({sales.length} kayıt)</td>
                     <td className="cell-mono" style={{ color: "var(--brand)", fontWeight: 800, fontSize: 14 }}>{formatTL(totalSales)} TL</td>
                     <td colSpan={2}></td>
                   </tr>
@@ -326,17 +326,17 @@ export default function Reports() {
         <div className="dialog-overlay" onClick={() => setShowDetail(null)}>
           <div className="dialog" onClick={(e) => e.stopPropagation()} style={{ maxWidth: isMobile ? "95vw" : 500 }}>
             <div className="dialog-header">
-              <h2>Satis Detayi</h2>
+              <h2>Satış Detayı</h2>
               <button className="dialog-close" onClick={() => setShowDetail(null)}>x</button>
             </div>
             <div className="dialog-body">
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 20 }}>
                 <div>
-                  <div style={{ fontSize: 11, color: "var(--text-secondary)", marginBottom: 2 }}>Musteri</div>
+                  <div style={{ fontSize: 11, color: "var(--text-secondary)", marginBottom: 2 }}>Müşteri</div>
                   <div style={{ fontWeight: 700, fontSize: 15 }}>{showDetail.customer_name || "-"}</div>
                 </div>
                 <div>
-                  <div style={{ fontSize: 11, color: "var(--text-secondary)", marginBottom: 2 }}>Satis Temsilcisi</div>
+                  <div style={{ fontSize: 11, color: "var(--text-secondary)", marginBottom: 2 }}>Satış Temsilcisi</div>
                   <div style={{ fontWeight: 700 }}>{showDetail.user_name || "-"}</div>
                 </div>
                 <div>
@@ -352,13 +352,13 @@ export default function Reports() {
                 </div>
                 {showDetail.check_in_at && (
                   <div>
-                    <div style={{ fontSize: 11, color: "var(--text-secondary)", marginBottom: 2 }}>Giris Saati</div>
+                    <div style={{ fontSize: 11, color: "var(--text-secondary)", marginBottom: 2 }}>Giriş Saati</div>
                     <div style={{ fontWeight: 600 }}>{showDetail.check_in_at}</div>
                   </div>
                 )}
                 {showDetail.check_out_at && (
                   <div>
-                    <div style={{ fontSize: 11, color: "var(--text-secondary)", marginBottom: 2 }}>Cikis Saati</div>
+                    <div style={{ fontSize: 11, color: "var(--text-secondary)", marginBottom: 2 }}>Çıkış Saati</div>
                     <div style={{ fontWeight: 600 }}>{showDetail.check_out_at}</div>
                   </div>
                 )}
@@ -366,7 +366,7 @@ export default function Reports() {
 
               <div style={{ background: "var(--bg-secondary)", borderRadius: 10, padding: 16, marginBottom: 16 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", fontSize: 18, fontWeight: 800, color: "var(--brand)" }}>
-                  <span>Satis Tutari</span>
+                  <span>Satış Tutarı</span>
                   <span>{formatTL(showDetail.sale_amount)} TL</span>
                 </div>
               </div>
@@ -414,10 +414,10 @@ function MultiCustomerSelect({ customers, selected, onChange }) {
 
   const label =
     selected.length === 0
-      ? "Tumu"
+      ? "Tümü"
       : selected.length === 1
-      ? (list.find((c) => String(c.id) === selected[0])?.name || "1 musteri")
-      : `${selected.length} musteri secili`;
+      ? (list.find((c) => String(c.id) === selected[0])?.name || "1 müşteri")
+      : `${selected.length} müşteri seçili`;
 
   return (
     <div style={{ position: "relative", width: 200 }}>
@@ -446,7 +446,7 @@ function MultiCustomerSelect({ customers, selected, onChange }) {
             <div style={{ padding: 8, borderBottom: "1px solid var(--border-light)" }}>
               <input
                 className="form-input"
-                placeholder="Musteri ara..."
+                placeholder="Müşteri ara..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 autoFocus
@@ -454,7 +454,7 @@ function MultiCustomerSelect({ customers, selected, onChange }) {
               />
             </div>
             <div style={{ display: "flex", justifyContent: "space-between", padding: "6px 10px", borderBottom: "1px solid var(--border-light)", fontSize: 12 }}>
-              <span style={{ color: "var(--text-secondary)" }}>{selected.length} secili</span>
+              <span style={{ color: "var(--text-secondary)" }}>{selected.length} seçili</span>
               {selected.length > 0 && (
                 <button type="button" onClick={() => onChange([])} style={{ border: "none", background: "none", color: "var(--brand)", cursor: "pointer", fontWeight: 600, fontSize: 12 }}>
                   Temizle
@@ -463,7 +463,7 @@ function MultiCustomerSelect({ customers, selected, onChange }) {
             </div>
             <div style={{ overflowY: "auto", flex: 1 }}>
               {filtered.length === 0 ? (
-                <div style={{ padding: "12px 16px", color: "#94a3b8", fontSize: 13 }}>Sonuc bulunamadi</div>
+                <div style={{ padding: "12px 16px", color: "#94a3b8", fontSize: 13 }}>Sonuç bulunamadı</div>
               ) : (
                 filtered.map((c) => {
                   const checked = selected.includes(String(c.id));
