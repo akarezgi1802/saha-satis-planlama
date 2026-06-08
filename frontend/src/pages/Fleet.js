@@ -155,6 +155,20 @@ export default function Fleet() {
                 <button className="btn btn-emphasized" onClick={openCreateType}>+ İlk Araç Tipini Ekle</button>
               </div>
             ) : (
+              <>
+              <div style={{
+                display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap",
+                margin: 16, marginBottom: 0, padding: "12px 16px", borderRadius: 10,
+                background: "#3b82f612", border: "1px solid #3b82f633", fontSize: 13,
+              }}>
+                <span>
+                  ✅ <strong>{types.length} araç tipi</strong> tanımlı. Bir <strong>satış temsilcisine</strong> araç ve yakıt atamak için
+                  <strong> Araçlar</strong> sekmesinden plaka ekleyip ST seçmelisiniz. <em>(ST ataması araç tipinde değil, araç eklerken yapılır.)</em>
+                </span>
+                <button className="btn btn-emphasized btn-sm" style={{ whiteSpace: "nowrap" }} onClick={() => setTab("vehicles")}>
+                  Araçlar sekmesine geç →
+                </button>
+              </div>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 14, padding: 16 }}>
                 {types.map((t) => {
                   const info = FUEL_INFO[t.fuel_type] || {};
@@ -199,6 +213,7 @@ export default function Fleet() {
                   );
                 })}
               </div>
+              </>
             )}
           </div>
         )}
