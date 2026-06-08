@@ -7,10 +7,8 @@ import api from "../api";
 
 // Plan haritasıyla (PlanDetail) aynı bölge renk paleti
 const COLORS = ["#6366f1", "#ef4444", "#10b981", "#f59e0b", "#3b82f6", "#8b5cf6", "#ec4899", "#14b8a6", "#f97316", "#06b6d4", "#84cc16", "#e11d48"];
-// Grafikler için pastel tonlar (UI öğeleri COLORS kullanır)
-const CHART_COLORS = ["#a5b4fc", "#fca5a5", "#6ee7b7", "#fcd34d", "#93c5fd", "#c4b5fd", "#f9a8d4", "#5eead4", "#fdba74", "#67e8f9", "#bef264", "#fda4af"];
-// Pasta grafiği için tek renk ailesi (sade)
-const PIE_SHADES = ["#c7d2fe", "#a5b4fc", "#818cf8", "#6366f1", "#4f46e5", "#4338ca", "#3730a3", "#312e81", "#b4c6fc", "#8da2fb", "#6875f5", "#5145cd"];
+// Grafikler için marka temasıyla uyumlu palet (indigo-mor + amber); UI öğeleri COLORS kullanır
+const CHART_PALETTE = ["#6366f1", "#8b5cf6", "#f59e0b", "#4f46e5", "#a78bfa", "#818cf8", "#7c3aed", "#fbbf24", "#3730a3", "#c4b5fd"];
 
 export default function AdminPerformance() {
   const [tab, setTab] = useState("overview");
@@ -599,7 +597,7 @@ export default function AdminPerformance() {
                               dataKey="value" label={({ name, percent }) => `${name.split(" ")[0]} ${(percent * 100).toFixed(0)}%`}
                             >
                               {comparison.filter(c => (c.co2_kg || 0) > 0).map((_, i) => (
-                                <Cell key={i} fill={PIE_SHADES[i % PIE_SHADES.length]} />
+                                <Cell key={i} fill={CHART_PALETTE[i % CHART_PALETTE.length]} />
                               ))}
                             </Pie>
                             <Tooltip formatter={(v) => `${v} kg CO2`} />
@@ -657,7 +655,7 @@ export default function AdminPerformance() {
                               type="monotone"
                               dataKey={`u${s.user_id}`}
                               name={s.user_name}
-                              stroke={s.cluster_index != null ? CHART_COLORS[s.cluster_index % CHART_COLORS.length] : "#94a3b8"}
+                              stroke={s.cluster_index != null ? CHART_PALETTE[s.cluster_index % CHART_PALETTE.length] : "#94a3b8"}
                               strokeWidth={2}
                               dot={{ r: 3 }}
                             />
