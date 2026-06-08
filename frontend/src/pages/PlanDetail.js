@@ -352,7 +352,7 @@ function MapTab({ results, selectedDay, setSelectedDay, depot }) {
               <Popup>
                 <div style={{ fontSize: 13 }}>
                   <strong>{p.customer_name}</strong><br />
-                  ST {p.cluster_index} · Ciro: {Number(p.monthly_revenue).toLocaleString("tr-TR")} ₺<br />
+                  ST{p.cluster_index + 1} · Ciro: {Number(p.monthly_revenue).toLocaleString("tr-TR")} ₺<br />
                   Ziyaret: {p.visit_frequency}x / hafta
                 </div>
               </Popup>
@@ -492,6 +492,21 @@ function ClustersTab({ results, stList, users, depot }) {
   );
 }
 
+/* Bölge grafikleri için hover kutusu: Bölge N + personel adı + değer */
+function RegionTooltip({ active, payload, suffix }) {
+  if (!active || !payload?.length) return null;
+  const p = payload[0].payload || {};
+  return (
+    <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 8, padding: "8px 12px", fontSize: 13, boxShadow: "0 4px 16px rgba(0,0,0,0.12)" }}>
+      <div style={{ fontWeight: 600, color: "#334155" }}>{p.region}</div>
+      {p.repName && <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 2 }}>{p.repName}</div>}
+      <div style={{ fontWeight: 700, color: "#0f172a" }}>
+        {payload[0].name}: {Number(payload[0].value).toLocaleString("tr-TR")}{suffix ? ` ${suffix}` : ""}
+      </div>
+    </div>
+  );
+}
+
 /* ═══ CHARTS TAB ═══ */
 function ChartsTab({ results, users = [] }) {
   const regionLabel = (ci) => {
@@ -503,12 +518,16 @@ function ChartsTab({ results, users = [] }) {
 
   const clusterData = {};
   results.clusters.forEach((c) => {
-    if (!clusterData[c.cluster_index]) clusterData[c.cluster_index] = { name: regionLabel(c.cluster_index), count: 0, revenue: 0, visits: 0 };
-    clusterData[c.cluster_index].count++;
-    clusterData[c.cluster_index].revenue += c.monthly_revenue;
-    clusterData[c.cluster_index].visits += c.visit_frequency;
+    const ci = c.cluster_index;
+    if (!clusterData[ci]) clusterData[ci] = {
+      cluster_index: ci, region: `Bölge ${ci + 1}`, code: `ST${ci + 1}`,
+      repName: regionLabel(ci), count: 0, revenue: 0, visits: 0,
+    };
+    clusterData[ci].count++;
+    clusterData[ci].revenue += c.monthly_revenue;
+    clusterData[ci].visits += c.visit_frequency;
   });
-  const clusterChartData = Object.values(clusterData);
+  const clusterChartData = Object.values(clusterData).sort((a, b) => a.cluster_index - b.cluster_index);
 
   const dayData = {};
   results.routes.forEach((r) => {
@@ -526,10 +545,12 @@ function ChartsTab({ results, users = [] }) {
         <ResponsiveContainer width="100%" height={window.innerWidth <= 768 ? 200 : 280}>
           <BarChart data={clusterChartData}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--border-light)" />
-            <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+            <XAxis dataKey="code" tick={{ fontSize: 12 }} />
             <YAxis tick={{ fontSize: 12 }} />
-            <Tooltip />
-            <Bar dataKey="count" name="Müşteri" fill="#6366f1" radius={[6, 6, 0, 0]} />
+            <Tooltip content={<RegionTooltip suffix="müşteri" />} />
+            <Bar dataKey="count" name="Müşteri" radius={[6, 6, 0, 0]}>
+              {clusterChartData.map((d) => <Cell key={d.cluster_index} fill={COLORS[d.cluster_index % COLORS.length]} />)}
+            </Bar>
           </BarChart>
         </ResponsiveContainer>
       </div>
@@ -537,11 +558,11 @@ function ChartsTab({ results, users = [] }) {
         <h3>ST Bazlı Ciro Dağılımı</h3>
         <ResponsiveContainer width="100%" height={window.innerWidth <= 768 ? 200 : 280}>
           <PieChart>
-            <Pie data={clusterChartData} dataKey="revenue" nameKey="name" cx="50%" cy="50%" outerRadius={95} innerRadius={50}
+            <Pie data={clusterChartData} dataKey="revenue" nameKey="region" cx="50%" cy="50%" outerRadius={95} innerRadius={50}
               label={({ name, percent }) => `${name} %${(percent * 100).toFixed(0)}`} labelLine={{ strokeWidth: 1 }}>
-              {clusterChartData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+              {clusterChartData.map((d) => <Cell key={d.cluster_index} fill={COLORS[d.cluster_index % COLORS.length]} />)}
             </Pie>
-            <Tooltip formatter={(v) => Number(v).toLocaleString("tr-TR") + " ₺"} />
+            <Tooltip content={<RegionTooltip suffix="₺" />} />
           </PieChart>
         </ResponsiveContainer>
       </div>
@@ -578,13 +599,13 @@ function WeeklyTab({ results, stList }) {
       <div className="seg-bar" style={{ marginBottom: 16 }}>
         {stList.map((ci) => (
           <button key={ci} className={`seg-item ${filterST === ci ? "active" : ""}`} onClick={() => setFilterST(ci)}>
-            ST {ci}
+            ST{ci + 1}
           </button>
         ))}
       </div>
       <div className="panel">
         <div className="panel-header">
-          <h3>Haftalık Ziyaret Planı — ST {filterST}</h3>
+          <h3>Haftalık Ziyaret Planı — ST{filterST + 1}</h3>
           <span className="panel-info">
             {results.weekly_plan.filter((w) => w.cluster_index === filterST).length} atama
           </span>
@@ -671,12 +692,12 @@ function RoutesTab({ results, stList }) {
           <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 4 }}>Satış Temsilcisi</div>
           {isMobile ? (
             <select className="form-input" value={filterST} onChange={(e) => setFilterST(Number(e.target.value))} style={{ width: "100%" }}>
-              {stList.map((ci) => <option key={ci} value={ci}>ST {ci}</option>)}
+              {stList.map((ci) => <option key={ci} value={ci}>ST{ci + 1}</option>)}
             </select>
           ) : (
             <div className="seg-bar">
               {stList.map((ci) => (
-                <button key={ci} className={`seg-item ${filterST === ci ? "active" : ""}`} onClick={() => setFilterST(ci)}>ST {ci}</button>
+                <button key={ci} className={`seg-item ${filterST === ci ? "active" : ""}`} onClick={() => setFilterST(ci)}>ST{ci + 1}</button>
               ))}
             </div>
           )}
@@ -711,7 +732,7 @@ function RoutesTab({ results, stList }) {
                 <div className="panel-header">
                   <h3 style={{ display: "flex", alignItems: "center", gap: 8 }}>
                     <span className="cluster-dot" style={{ background: color, margin: 0 }} />
-                    ST {route.cluster_index} — {route.day_name}
+                    ST{route.cluster_index + 1} — {route.day_name}
                   </h3>
                   <span className="panel-info">{route.customer_count} müşteri · {route.total_distance?.toFixed(2)} km</span>
                 </div>
