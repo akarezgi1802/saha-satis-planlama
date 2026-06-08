@@ -599,21 +599,17 @@ export default function Dashboard() {
             <div className="panel" style={{ marginTop: 16, padding: 0 }}>
               <div style={{ padding: "16px 20px 0" }}>
                 <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: "#1e293b" }}>ST Bazlı Ziyaret Sayısı</h3>
-                <p style={{ margin: "4px 0 0", fontSize: 12, color: "#94a3b8" }}>Her satış temsilcisinin (bölgesinin) haftalık toplam müşteri ziyareti</p>
+                <p style={{ margin: "4px 0 0", fontSize: 12, color: "#94a3b8" }}>Her satış temsilcisinin (bölgesinin) haftalık toplam müşteri ziyareti — bölge renginde</p>
               </div>
               <ResponsiveContainer width="100%" height={window.innerWidth <= 768 ? 220 : 320}>
                 <BarChart data={stVisitData} margin={{ top: 20, right: 24, left: 8, bottom: 8 }}>
-                  <defs>
-                    <linearGradient id="barGradVisit" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#10b981" stopOpacity={1} />
-                      <stop offset="100%" stopColor="#10b981" stopOpacity={0.5} />
-                    </linearGradient>
-                  </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
                   <XAxis dataKey="code" tick={{ fontSize: 12, fill: "#64748b" }} axisLine={false} tickLine={false} />
                   <YAxis tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} allowDecimals={false} />
                   <Tooltip content={<CustomTooltip suffix="müşteri" />} cursor={{ fill: "#f8fafc" }} />
-                  <Bar dataKey="visits" name="Ziyaret" fill="url(#barGradVisit)" radius={[6, 6, 0, 0]} barSize={window.innerWidth <= 768 ? 22 : 44} />
+                  <Bar dataKey="visits" name="Ziyaret" radius={[6, 6, 0, 0]} barSize={window.innerWidth <= 768 ? 22 : 44}>
+                    {stVisitData.map((d) => <Cell key={d.cluster_index} fill={COLORS[d.cluster_index % COLORS.length]} />)}
+                  </Bar>
                 </BarChart>
               </ResponsiveContainer>
             </div>
