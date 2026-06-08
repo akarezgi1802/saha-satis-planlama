@@ -156,6 +156,15 @@ def update_user(
             raise HTTPException(status_code=400, detail="Geçersiz rol")
         user.role = body.role
     if body.cluster_index is not None:
+        # Bölge gerçekten değiştiyse satış temsilcisine bildirim oluştur
+        if body.cluster_index != user.cluster_index and user.role == "sales_rep":
+            from ..models import Notification
+            db.add(Notification(
+                user_id=user.id,
+                title="Bölgeniz güncellendi",
+                message=f"Yeni bölgeniz: Bölge {body.cluster_index + 1}. 'Benim Planım' sayfasından güncel rotanızı görüntüleyebilirsiniz.",
+                type="region",
+            ))
         user.cluster_index = body.cluster_index
     if body.is_active is not None:
         user.is_active = body.is_active

@@ -19,6 +19,7 @@ import Fleet from "./pages/Fleet";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
 import ErrorBoundary from "./components/ErrorBoundary";
+import NotificationBell from "./components/NotificationBell";
 import "./App.css";
 
 function ProtectedLayout({ user, onLogout, children }) {
@@ -149,6 +150,7 @@ function ProtectedLayout({ user, onLogout, children }) {
               <div className="sidebar-user-role">{isAdmin ? "Yönetici" : "Satış Temsilcisi"}</div>
             </div>
           </div>
+          <NotificationBell />
           <button className="sidebar-logout" onClick={handleLogout} title="Çıkış Yap">⏻</button>
         </div>
         <div className="sidebar-footer">v1.0 — Karar Destek Sistemi</div>

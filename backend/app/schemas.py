@@ -356,3 +356,15 @@ class VehicleOut(BaseModel):
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+# ─── Notification ────────────────────────────
+class NotificationOut(BaseModel):
+    id: int
+    title: str
+    message: str
+    type: str
+    is_read: int
+    created_at: datetime
+
+    model_config = {"from_attributes": True}

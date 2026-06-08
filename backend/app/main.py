@@ -10,7 +10,7 @@ from sqlalchemy import text
 
 from .database import engine, Base, SessionLocal
 from .models import Plan
-from .routers import auth, customers, sales_reps, plans, settings, performance, announcements, ai, campaigns, install, routing, tasks, admin_demo, reports, fleet, carbon
+from .routers import auth, customers, sales_reps, plans, settings, performance, announcements, ai, campaigns, install, routing, tasks, admin_demo, reports, fleet, carbon, notifications
 
 Base.metadata.create_all(bind=engine)
 
@@ -56,6 +56,15 @@ def _run_migrations():
             estimated_time_minutes FLOAT,
             co2_emission_kg FLOAT,
             visit_count INTEGER NOT NULL DEFAULT 0,
+            created_at TIMESTAMP DEFAULT NOW()
+        )""",
+        """CREATE TABLE IF NOT EXISTS notifications (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER NOT NULL REFERENCES users(id),
+            title VARCHAR(200) NOT NULL,
+            message TEXT NOT NULL,
+            type VARCHAR(50) DEFAULT 'info',
+            is_read INTEGER DEFAULT 0,
             created_at TIMESTAMP DEFAULT NOW()
         )""",
     ]
@@ -117,6 +126,7 @@ app.include_router(admin_demo.router)
 app.include_router(reports.router)
 app.include_router(fleet.router)
 app.include_router(carbon.router)
+app.include_router(notifications.router)
 
 
 # ── Frontend static dosyaları (deploy modunda) ──
