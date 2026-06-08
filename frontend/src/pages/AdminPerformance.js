@@ -7,8 +7,6 @@ import api from "../api";
 
 // Plan haritasıyla (PlanDetail) aynı bölge renk paleti
 const COLORS = ["#6366f1", "#ef4444", "#10b981", "#f59e0b", "#3b82f6", "#8b5cf6", "#ec4899", "#14b8a6", "#f97316", "#06b6d4", "#84cc16", "#e11d48"];
-// Grafikler için marka temasıyla uyumlu palet (indigo-mor + amber); UI öğeleri COLORS kullanır
-const CHART_PALETTE = ["#6366f1", "#8b5cf6", "#f59e0b", "#4f46e5", "#a78bfa", "#818cf8", "#7c3aed", "#fbbf24", "#3730a3", "#c4b5fd"];
 
 export default function AdminPerformance() {
   const [tab, setTab] = useState("overview");
@@ -597,7 +595,7 @@ export default function AdminPerformance() {
                               dataKey="value" label={({ name, percent }) => `${name.split(" ")[0]} ${(percent * 100).toFixed(0)}%`}
                             >
                               {comparison.filter(c => (c.co2_kg || 0) > 0).map((_, i) => (
-                                <Cell key={i} fill={CHART_PALETTE[i % CHART_PALETTE.length]} />
+                                <Cell key={i} fill={COLORS[i % COLORS.length]} />
                               ))}
                             </Pie>
                             <Tooltip formatter={(v) => `${v} kg CO2`} />
@@ -655,7 +653,7 @@ export default function AdminPerformance() {
                               type="monotone"
                               dataKey={`u${s.user_id}`}
                               name={s.user_name}
-                              stroke={s.cluster_index != null ? CHART_PALETTE[s.cluster_index % CHART_PALETTE.length] : "#94a3b8"}
+                              stroke={s.cluster_index != null ? COLORS[s.cluster_index % COLORS.length] : "#94a3b8"}
                               strokeWidth={2}
                               dot={{ r: 3 }}
                             />

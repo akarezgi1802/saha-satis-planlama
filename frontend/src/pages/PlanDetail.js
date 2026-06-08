@@ -10,8 +10,6 @@ import "leaflet/dist/leaflet.css";
 import api from "../api";
 
 const COLORS = ["#6366f1", "#ef4444", "#10b981", "#f59e0b", "#3b82f6", "#8b5cf6", "#ec4899", "#14b8a6", "#f97316", "#06b6d4", "#84cc16", "#e11d48"];
-// Grafikler için marka temasıyla uyumlu palet (indigo-mor + amber); harita/rota/UI öğeleri COLORS kullanır
-const CHART_PALETTE = ["#6366f1", "#8b5cf6", "#f59e0b", "#4f46e5", "#a78bfa", "#818cf8", "#7c3aed", "#fbbf24", "#3730a3", "#c4b5fd"];
 const DAY_NAMES = { 1: "Pazartesi", 2: "Salı", 3: "Çarşamba", 4: "Perşembe", 5: "Cuma", 6: "Cumartesi" };
 const DAY_SHORT = { 1: "Pzt", 2: "Salı", 3: "Çar", 4: "Per", 5: "Cum", 6: "Cmt" };
 
@@ -551,7 +549,7 @@ function ChartsTab({ results, users = [] }) {
             <YAxis tick={{ fontSize: 12 }} />
             <Tooltip content={<RegionTooltip suffix="müşteri" />} />
             <Bar dataKey="count" name="Müşteri" radius={[6, 6, 0, 0]}>
-              {clusterChartData.map((d) => <Cell key={d.cluster_index} fill={CHART_PALETTE[d.cluster_index % CHART_PALETTE.length]} />)}
+              {clusterChartData.map((d) => <Cell key={d.cluster_index} fill={COLORS[d.cluster_index % COLORS.length]} />)}
             </Bar>
           </BarChart>
         </ResponsiveContainer>
@@ -562,7 +560,7 @@ function ChartsTab({ results, users = [] }) {
           <PieChart>
             <Pie data={clusterChartData} dataKey="revenue" nameKey="region" cx="50%" cy="50%" outerRadius={95} innerRadius={50}
               label={({ name, percent }) => `${name} %${(percent * 100).toFixed(0)}`} labelLine={{ strokeWidth: 1 }}>
-              {clusterChartData.map((d) => <Cell key={d.cluster_index} fill={CHART_PALETTE[d.cluster_index % CHART_PALETTE.length]} />)}
+              {clusterChartData.map((d) => <Cell key={d.cluster_index} fill={COLORS[d.cluster_index % COLORS.length]} />)}
             </Pie>
             <Tooltip content={<RegionTooltip suffix="₺" />} />
           </PieChart>
