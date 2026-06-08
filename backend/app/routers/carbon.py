@@ -217,6 +217,9 @@ def get_distance_comparison(
         act_t = agg["actual_time"]
         time_diff_pct = round((act_t - est_t) / est_t * 100, 1) if est_t else None
 
+        consumption = vi["consumption"]
+        fuel_consumed = act_d * consumption / 100
+
         data.append({
             "user_id": uid,
             "user_name": user.full_name if user else "?",
@@ -227,6 +230,8 @@ def get_distance_comparison(
             "estimated_time_min": round(est_t, 1),
             "time_diff_pct": time_diff_pct,
             "co2_kg": round(agg["co2_kg"], 2),
+            "fuel_consumed": round(fuel_consumed, 2),
+            "fuel_consumption": consumption,
             "visit_count": agg["visits"],
             "days": agg["days"],
             "vehicle_type": vi["vehicle_type_name"],

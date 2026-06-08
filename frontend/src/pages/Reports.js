@@ -394,13 +394,25 @@ export default function Reports() {
   );
 }
 
+// Türkçe karakterleri normalize ederek aksandan bağımsız arama sağlar
+function trNorm(s) {
+  return (s || "")
+    .replace(/İ/g, "i").replace(/I/g, "i").replace(/ı/g, "i")
+    .replace(/Ş/g, "s").replace(/ş/g, "s")
+    .replace(/Ğ/g, "g").replace(/ğ/g, "g")
+    .replace(/Ü/g, "u").replace(/ü/g, "u")
+    .replace(/Ö/g, "o").replace(/ö/g, "o")
+    .replace(/Ç/g, "c").replace(/ç/g, "c")
+    .toLowerCase();
+}
+
 function MultiCustomerSelect({ customers, selected, onChange }) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
 
   const list = Array.isArray(customers) ? customers : [];
   const filtered = search
-    ? list.filter((c) => (c.name || "").toLowerCase().includes(search.toLowerCase()))
+    ? list.filter((c) => trNorm(c.name).includes(trNorm(search)))
     : list;
 
   const toggle = (id) => {

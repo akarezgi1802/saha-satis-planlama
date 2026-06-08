@@ -57,8 +57,8 @@ export default function AdminPerformance() {
     if (tab === "distance" || tab === "carbon") {
       const { start, end } = getDateRange();
       api.get("/carbon/comparison", { params: { start_date: start, end_date: end } })
-        .then((r) => setComparison(r.data))
-        .catch(() => setComparison(null));
+        .then((r) => setComparison(Array.isArray(r.data?.data) ? r.data.data : []))
+        .catch(() => setComparison([]));
     }
   }, [tab, loadVisits, getDateRange]);
 
@@ -452,18 +452,18 @@ export default function AdminPerformance() {
                         </thead>
                         <tbody>
                           {comparison.map((c, i) => {
-                            const distDiff = c.estimated_distance > 0 ? ((c.actual_distance - c.estimated_distance) / c.estimated_distance * 100) : 0;
-                            const timeDiff = c.estimated_time > 0 ? ((c.actual_time - c.estimated_time) / c.estimated_time * 100) : 0;
+                            const distDiff = c.estimated_distance_km > 0 ? ((c.actual_distance_km - c.estimated_distance_km) / c.estimated_distance_km * 100) : 0;
+                            const timeDiff = c.estimated_time_min > 0 ? ((c.actual_time_min - c.estimated_time_min) / c.estimated_time_min * 100) : 0;
                             return (
                               <tr key={i}>
                                 <td className="cell-bold">{c.user_name}</td>
-                                <td className="cell-mono">{(c.estimated_distance || 0).toFixed(1)} km</td>
-                                <td className="cell-mono">{(c.actual_distance || 0).toFixed(1)} km</td>
+                                <td className="cell-mono">{(c.estimated_distance_km || 0).toFixed(1)} km</td>
+                                <td className="cell-mono">{(c.actual_distance_km || 0).toFixed(1)} km</td>
                                 <td className="cell-mono" style={{ color: distDiff > 10 ? "#ef4444" : distDiff < -10 ? "#10b981" : "#64748b", fontWeight: 600 }}>
                                   {distDiff > 0 ? "+" : ""}{distDiff.toFixed(1)}%
                                 </td>
-                                <td className="cell-mono">{Math.round(c.estimated_time || 0)} dk</td>
-                                <td className="cell-mono">{Math.round(c.actual_time || 0)} dk</td>
+                                <td className="cell-mono">{Math.round(c.estimated_time_min || 0)} dk</td>
+                                <td className="cell-mono">{Math.round(c.actual_time_min || 0)} dk</td>
                                 <td className="cell-mono" style={{ color: timeDiff > 10 ? "#ef4444" : timeDiff < -10 ? "#10b981" : "#64748b", fontWeight: 600 }}>
                                   {timeDiff > 0 ? "+" : ""}{timeDiff.toFixed(1)}%
                                 </td>
@@ -479,7 +479,7 @@ export default function AdminPerformance() {
                       <div className="panel" style={{ border: "none", boxShadow: "none" }}>
                         <div className="panel-header"><h3>Mesafe Karşılaştırması (km)</h3></div>
                         <ResponsiveContainer width="100%" height={300}>
-                          <BarChart data={comparison.map(c => ({ name: (c.user_name || "").split(" ")[0], tahmini: Number((c.estimated_distance || 0).toFixed(1)), gercek: Number((c.actual_distance || 0).toFixed(1)) }))}>
+                          <BarChart data={comparison.map(c => ({ name: (c.user_name || "").split(" ")[0], tahmini: Number((c.estimated_distance_km || 0).toFixed(1)), gercek: Number((c.actual_distance_km || 0).toFixed(1)) }))}>
                             <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                             <XAxis dataKey="name" tick={{ fontSize: 11 }} />
                             <YAxis tick={{ fontSize: 11 }} />
@@ -493,7 +493,7 @@ export default function AdminPerformance() {
                       <div className="panel" style={{ border: "none", boxShadow: "none" }}>
                         <div className="panel-header"><h3>Süre Karşılaştırması (dk)</h3></div>
                         <ResponsiveContainer width="100%" height={300}>
-                          <BarChart data={comparison.map(c => ({ name: (c.user_name || "").split(" ")[0], tahmini: Math.round(c.estimated_time || 0), gercek: Math.round(c.actual_time || 0) }))}>
+                          <BarChart data={comparison.map(c => ({ name: (c.user_name || "").split(" ")[0], tahmini: Math.round(c.estimated_time_min || 0), gercek: Math.round(c.actual_time_min || 0) }))}>
                             <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                             <XAxis dataKey="name" tick={{ fontSize: 11 }} />
                             <YAxis tick={{ fontSize: 11 }} />
@@ -542,7 +542,7 @@ export default function AdminPerformance() {
                               <tr key={i}>
                                 <td className="cell-bold">{c.user_name}</td>
                                 <td>{c.vehicle_type || "Varsayılan"}</td>
-                                <td className="cell-mono">{(c.actual_distance || 0).toFixed(1)}</td>
+                                <td className="cell-mono">{(c.actual_distance_km || 0).toFixed(1)}</td>
                                 <td className="cell-mono">{(c.fuel_consumed || 0).toFixed(2)}</td>
                                 <td className="cell-mono" style={{ fontWeight: 600, color: "#ef4444" }}>{(c.co2_kg || 0).toFixed(2)}</td>
                                 <td className="cell-mono">{c.visit_count || 0}</td>
