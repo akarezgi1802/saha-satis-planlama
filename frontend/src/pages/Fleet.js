@@ -128,17 +128,40 @@ export default function Fleet() {
         </div>
 
         {/* Tab Bar */}
-        <div className="seg-bar" style={{ marginBottom: 16 }}>
+        <div style={{ display: "flex", gap: 10, marginBottom: 16, flexWrap: "wrap" }}>
           {[
-            { key: "types", label: `Araç Tipleri (${types.length})` },
-            { key: "vehicles", label: `Araçlar (${vehicles.length})` },
-          ].map((t) => (
-            <button
-              key={t.key}
-              className={`seg-btn${tab === t.key ? " active" : ""}`}
-              onClick={() => setTab(t.key)}
-            >{t.label}</button>
-          ))}
+            { key: "types", icon: "🚙", label: "Araç Tipleri", count: types.length, hint: "Yakıt türü & tüketim" },
+            { key: "vehicles", icon: "🚚", label: "Araçlar", count: vehicles.length, hint: "Plaka & ST ataması" },
+          ].map((t) => {
+            const active = tab === t.key;
+            return (
+              <button
+                key={t.key}
+                onClick={() => setTab(t.key)}
+                style={{
+                  display: "flex", alignItems: "center", gap: 12, padding: "12px 18px",
+                  borderRadius: 12, cursor: "pointer", fontFamily: "inherit", textAlign: "left",
+                  border: active ? "1.5px solid var(--brand, #6366f1)" : "1px solid var(--border-light, #e2e8f0)",
+                  background: active ? "var(--brand, #6366f1)" : "#fff",
+                  color: active ? "#fff" : "var(--text, #1e293b)",
+                  boxShadow: active ? "0 4px 14px rgba(99,102,241,0.28)" : "0 1px 3px rgba(0,0,0,0.06)",
+                  transition: "all 150ms ease",
+                }}
+              >
+                <span style={{ fontSize: 22, lineHeight: 1 }}>{t.icon}</span>
+                <span style={{ display: "flex", flexDirection: "column", lineHeight: 1.3 }}>
+                  <span style={{ fontWeight: 700, fontSize: 14 }}>{t.label}</span>
+                  <span style={{ fontSize: 11, opacity: active ? 0.85 : 0.6 }}>{t.hint}</span>
+                </span>
+                <span style={{
+                  marginLeft: 4, minWidth: 24, textAlign: "center", fontSize: 13, fontWeight: 800,
+                  padding: "3px 9px", borderRadius: 20,
+                  background: active ? "rgba(255,255,255,0.25)" : "var(--bg-secondary, #f1f5f9)",
+                  color: active ? "#fff" : "var(--text-secondary, #64748b)",
+                }}>{t.count}</span>
+              </button>
+            );
+          })}
         </div>
 
         {/* Araç Tipleri */}
