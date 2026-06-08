@@ -1,6 +1,19 @@
 import { useState, useEffect } from "react";
 import api from "../api";
 
+// Plan haritasıyla (PlanDetail) AYNI bölge renk paleti — admin bölgeleri orada bu renklerle görür
+const REGION_COLORS = ["#6366f1", "#ef4444", "#10b981", "#f59e0b", "#3b82f6", "#8b5cf6", "#ec4899", "#14b8a6", "#f97316", "#06b6d4", "#84cc16", "#e11d48"];
+const regionColor = (i) => REGION_COLORS[i % REGION_COLORS.length];
+
+function ColorDot({ index, size = 12 }) {
+  return (
+    <span style={{
+      display: "inline-block", width: size, height: size, borderRadius: "50%",
+      background: regionColor(index), flexShrink: 0, border: "1px solid rgba(0,0,0,0.1)",
+    }} />
+  );
+}
+
 export default function Staff() {
   const [users, setUsers] = useState([]);
   const [showDialog, setShowDialog] = useState(false);
@@ -156,7 +169,9 @@ export default function Staff() {
                       <td className="cell-dim">{u.company || "—"}</td>
                       <td>
                         {u.cluster_index !== null ? (
-                          <span className="badge-freq">Bölge {u.cluster_index + 1}</span>
+                          <span className="badge-freq" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                            <ColorDot index={u.cluster_index} /> Bölge {u.cluster_index + 1}
+                          </span>
                         ) : (
                           <span className="cell-dim">Atanmadı</span>
                         )}
@@ -260,15 +275,10 @@ export default function Staff() {
               {form.role === "sales_rep" && (
                 <div className="form-group">
                   <label>Atanacak Bölge</label>
-                  <select className="form-input" value={form.cluster_index} onChange={(e) => update("cluster_index", e.target.value)}>
-                    <option value="">— Bölge atanmadı —</option>
-                    {Array.from({ length: regionCount }, (_, i) => (
-                      <option key={i} value={i}>Bölge {i + 1}</option>
-                    ))}
-                  </select>
+                  <RegionSelect value={form.cluster_index} count={regionCount} onChange={(v) => update("cluster_index", v)} />
                   <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 4 }}>
                     {regionCount > 0
-                      ? `Tamamlanmış planda ${regionCount} bölge var. Satış temsilcisi seçtiği bölgenin rota planını görür.`
+                      ? `Tamamlanmış planda ${regionCount} bölge var. Renkler harita üzerindeki bölge renkleriyle eşleşir.`
                       : "Henüz tamamlanmış bir plan yok. Önce plan oluşturup tamamlayın."}
                   </div>
                 </div>
@@ -282,6 +292,66 @@ export default function Staff() {
             </div>
           </div>
         </div>
+      )}
+    </div>
+  );
+}
+
+// Renkli bölge seçici (option'larda renk gösterilemediği için custom dropdown)
+function RegionSelect({ value, count, onChange }) {
+  const [open, setOpen] = useState(false);
+  const selected = value === "" || value === null || value === undefined ? null : Number(value);
+
+  const choose = (v) => { onChange(v); setOpen(false); };
+
+  return (
+    <div style={{ position: "relative" }}>
+      <button
+        type="button"
+        className="form-input"
+        onClick={() => setOpen((o) => !o)}
+        style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", width: "100%", textAlign: "left" }}
+      >
+        {selected !== null ? (
+          <><ColorDot index={selected} /> <span>Bölge {selected + 1}</span></>
+        ) : (
+          <span style={{ color: "var(--text-secondary)" }}>— Bölge atanmadı —</span>
+        )}
+        <span style={{ marginLeft: "auto", fontSize: 10, color: "var(--text-secondary)" }}>▼</span>
+      </button>
+
+      {open && (
+        <>
+          <div style={{ position: "fixed", inset: 0, zIndex: 99 }} onClick={() => setOpen(false)} />
+          <div style={{
+            position: "absolute", top: "100%", left: 0, right: 0, zIndex: 100, marginTop: 2,
+            background: "#fff", border: "1px solid var(--border)", borderRadius: 8,
+            boxShadow: "var(--shadow-md)", maxHeight: 260, overflowY: "auto",
+          }}>
+            <div
+              onClick={() => choose("")}
+              style={{ padding: "9px 12px", cursor: "pointer", fontSize: 13, color: "var(--text-secondary)", borderBottom: "1px solid var(--border-light)" }}
+            >
+              — Bölge atanmadı —
+            </div>
+            {Array.from({ length: count }, (_, i) => (
+              <div
+                key={i}
+                onClick={() => choose(String(i))}
+                style={{
+                  display: "flex", alignItems: "center", gap: 8, padding: "9px 12px",
+                  cursor: "pointer", fontSize: 13,
+                  background: selected === i ? "var(--bg-secondary)" : "transparent",
+                }}
+              >
+                <ColorDot index={i} /> Bölge {i + 1}
+              </div>
+            ))}
+            {count === 0 && (
+              <div style={{ padding: "12px", fontSize: 12, color: "#94a3b8" }}>Tanımlı bölge yok</div>
+            )}
+          </div>
+        </>
       )}
     </div>
   );
