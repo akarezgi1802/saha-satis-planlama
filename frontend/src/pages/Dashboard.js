@@ -178,10 +178,12 @@ export default function Dashboard() {
   const [carbonSummary, setCarbonSummary] = useState(null);
   const [carbonWeekly, setCarbonWeekly] = useState([]);
   const [carbonDaily, setCarbonDaily] = useState([]);
+  const [users, setUsers] = useState([]);
   const navigate = useNavigate();
 
   useEffect(() => {
     api.get("/customers/count").then((r) => setStats(r.data));
+    api.get("/auth/users").then((r) => setUsers(r.data)).catch(() => {});
     api.get("/settings/depot").then((r) => setDepot(r.data)).catch(() => {});
     api.get("/plans/").then((r) => {
       const all = r.data;
@@ -218,10 +220,17 @@ export default function Dashboard() {
   const completedPlans = plans.filter((p) => p.status === "completed");
   const currentPlan = plans.find((p) => p.id === selectedPlan);
 
+  const regionLabel = (ci) => {
+    const reps = users.filter((u) => u.role === "sales_rep" && u.cluster_index === ci);
+    if (reps.length === 0) return `Bölge ${ci + 1}`;
+    if (reps.length === 1) return reps[0].full_name;
+    return `${reps[0].full_name} +${reps.length - 1}`;
+  };
+
   const clusterData = results ? (() => {
     const map = {};
     results.clusters.forEach((c) => {
-      if (!map[c.cluster_index]) map[c.cluster_index] = { name: `ST ${c.cluster_index}`, count: 0, revenue: 0 };
+      if (!map[c.cluster_index]) map[c.cluster_index] = { name: regionLabel(c.cluster_index), count: 0, revenue: 0 };
       map[c.cluster_index].count++;
       map[c.cluster_index].revenue += c.monthly_revenue;
     });
@@ -593,7 +602,7 @@ export default function Dashboard() {
                   <Tooltip content={<CustomTooltip suffix="müşteri" />} />
                   <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12, paddingTop: 8 }} />
                   {stList.map((ci, i) => (
-                    <Bar key={ci} dataKey={`ST ${ci}`} name={`ST ${ci}`} fill={COLORS[ci % COLORS.length]} radius={[4, 4, 0, 0]} barSize={window.innerWidth <= 768 ? 14 : 28} />
+                    <Bar key={ci} dataKey={`ST ${ci}`} name={regionLabel(ci)} fill={COLORS[ci % COLORS.length]} radius={[4, 4, 0, 0]} barSize={window.innerWidth <= 768 ? 14 : 28} />
                   ))}
                 </BarChart>
               </ResponsiveContainer>

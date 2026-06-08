@@ -807,3 +807,93 @@ def admin_list_visits(
             "distance_from_customer_m": round(v.distance_from_customer_m, 1) if v.distance_from_customer_m else None,
         })
     return result
+
+
+# Türkçe ay kısaltmaları (1=Ocak)
+_TR_MONTHS = ["Oca", "Şub", "Mar", "Nis", "May", "Haz", "Tem", "Ağu", "Eyl", "Eki", "Kas", "Ara"]
+
+
+@router.get("/admin/trend")
+def admin_sales_trend(
+    start_date: date = Query(None),
+    end_date: date = Query(None),
+    granularity: str = Query("day"),
+    db: Session = Depends(get_db),
+    _admin: User = Depends(require_admin),
+):
+    """ST bazlı satış trendi — günlük veya aylık bucket'larda satış toplamı."""
+    today_ = date.today()
+    if not start_date:
+        start_date = today_ - timedelta(days=today_.weekday())
+    if not end_date:
+        end_date = today_
+    if end_date < start_date:
+        start_date, end_date = end_date, start_date
+    if granularity not in ("day", "month"):
+        granularity = "day"
+
+    # ── Bucket'ları üret ──
+    buckets = []   # bucket anahtarı (gruplama için kullanılacak)
+    labels = []    # kısa Türkçe etiket
+    if granularity == "day":
+        d = start_date
+        while d <= end_date:
+            buckets.append(d.isoformat())
+            labels.append(f"{d.day} {_TR_MONTHS[d.month - 1]}")
+            d += timedelta(days=1)
+    else:  # month
+        y, m = start_date.year, start_date.month
+        while (y, m) <= (end_date.year, end_date.month):
+            buckets.append(f"{y:04d}-{m:02d}")
+            labels.append(f"{_TR_MONTHS[m - 1]} {y}")
+            if m == 12:
+                y, m = y + 1, 1
+            else:
+                m += 1
+
+    bucket_index = {b: i for i, b in enumerate(buckets)}
+
+    def _bucket_key(visit_date):
+        if granularity == "day":
+            return visit_date.isoformat()
+        return f"{visit_date.year:04d}-{visit_date.month:02d}"
+
+    # ── Tüm aktif sales_rep'ler (satışı olmasa bile seriye dahil) ──
+    reps = (
+        db.query(User)
+        .filter(User.role == "sales_rep", User.is_active == 1)
+        .order_by(User.full_name)
+        .all()
+    )
+
+    # ── Aralıktaki tüm ziyaret kayıtları ──
+    visits = db.query(SalesVisit).filter(
+        SalesVisit.visit_date >= start_date,
+        SalesVisit.visit_date <= end_date,
+    ).all()
+
+    # user_id -> bucket_index -> toplam satış
+    sums = {rep.id: [0.0] * len(buckets) for rep in reps}
+    for v in visits:
+        if v.user_id not in sums:
+            continue
+        key = _bucket_key(v.visit_date)
+        idx = bucket_index.get(key)
+        if idx is not None:
+            sums[v.user_id][idx] += v.sale_amount or 0
+
+    series = [
+        {
+            "user_id": rep.id,
+            "user_name": rep.full_name,
+            "cluster_index": rep.cluster_index,
+            "data": sums[rep.id],
+        }
+        for rep in reps
+    ]
+
+    return {
+        "buckets": buckets,
+        "labels": labels,
+        "series": series,
+    }

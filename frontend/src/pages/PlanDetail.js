@@ -243,7 +243,7 @@ export default function PlanDetail() {
 
             {tab === "map" && <MapTab results={results} selectedDay={selectedDay} setSelectedDay={setSelectedDay} depot={depot} />}
             {tab === "clusters" && <ClustersTab results={results} stList={stList} users={users} depot={depot} />}
-            {tab === "charts" && <ChartsTab results={results} />}
+            {tab === "charts" && <ChartsTab results={results} users={users} />}
             {tab === "weekly" && <WeeklyTab results={results} stList={stList} />}
             {tab === "routes" && <RoutesTab results={results} stList={stList} />}
           </>
@@ -493,10 +493,17 @@ function ClustersTab({ results, stList, users, depot }) {
 }
 
 /* ═══ CHARTS TAB ═══ */
-function ChartsTab({ results }) {
+function ChartsTab({ results, users = [] }) {
+  const regionLabel = (ci) => {
+    const reps = users.filter((u) => u.role === "sales_rep" && u.cluster_index === ci);
+    if (reps.length === 0) return `Bölge ${ci + 1}`;
+    if (reps.length === 1) return reps[0].full_name;
+    return `${reps[0].full_name} +${reps.length - 1}`;
+  };
+
   const clusterData = {};
   results.clusters.forEach((c) => {
-    if (!clusterData[c.cluster_index]) clusterData[c.cluster_index] = { name: `ST ${c.cluster_index}`, count: 0, revenue: 0, visits: 0 };
+    if (!clusterData[c.cluster_index]) clusterData[c.cluster_index] = { name: regionLabel(c.cluster_index), count: 0, revenue: 0, visits: 0 };
     clusterData[c.cluster_index].count++;
     clusterData[c.cluster_index].revenue += c.monthly_revenue;
     clusterData[c.cluster_index].visits += c.visit_frequency;

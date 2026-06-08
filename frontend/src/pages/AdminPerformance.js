@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
-  ResponsiveContainer, PieChart, Pie, Cell,
+  ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line,
 } from "recharts";
 import api from "../api";
 
@@ -16,6 +16,8 @@ export default function AdminPerformance() {
   const [period, setPeriod] = useState("week");
   const [selectedRep, setSelectedRep] = useState(null);
   const [comparison, setComparison] = useState(null);
+  const [trend, setTrend] = useState(null);
+  const [trendRep, setTrendRep] = useState(""); // "" = Tümü
 
   const getDateRange = useCallback(() => {
     const today = new Date();
@@ -63,7 +65,14 @@ export default function AdminPerformance() {
         .then((r) => setComparison(Array.isArray(r.data?.data) ? r.data.data : []))
         .catch(() => setComparison([]));
     }
-  }, [tab, loadVisits, getDateRange]);
+    if (tab === "trend") {
+      const { start, end } = getDateRange();
+      const granularity = period === "year" ? "month" : "day";
+      api.get("/performance/admin/trend", { params: { start_date: start, end_date: end, granularity } })
+        .then((r) => setTrend(r.data))
+        .catch(() => setTrend(null));
+    }
+  }, [tab, period, loadVisits, getDateRange]);
 
   const totalSales = data.reduce((s, d) => s + d.total_sales, 0);
   const totalVisits = data.reduce((s, d) => s + d.visit_count, 0);
@@ -140,6 +149,7 @@ export default function AdminPerformance() {
                 { key: "details", label: "Detay Kayıtlar" },
                 { key: "distance", label: "Mesafe & Süre" },
                 { key: "carbon", label: "Karbon" },
+                { key: "trend", label: "Satış Trendi" },
               ].map((t) => (
                 <button key={t.key} className={`tab-item ${tab === t.key ? "active" : ""}`} onClick={() => setTab(t.key)}>
                   {t.label}
@@ -596,6 +606,63 @@ export default function AdminPerformance() {
                     </div>
                   </>
                 )}
+              </div>
+            )}
+
+            {tab === "trend" && (
+              <div className="panel">
+                <div className="panel-header">
+                  <h3>Satış Temsilcisi Bazlı Satış Trendi</h3>
+                  <select
+                    className="form-input"
+                    style={{ width: "100%", maxWidth: 220, height: 32, fontSize: 12 }}
+                    value={trendRep}
+                    onChange={(e) => setTrendRep(e.target.value)}
+                  >
+                    <option value="">Tümü</option>
+                    {(trend?.series || []).map((s) => (
+                      <option key={s.user_id} value={s.user_id}>{s.user_name}</option>
+                    ))}
+                  </select>
+                </div>
+                {!trend || !trend.series || trend.series.length === 0 ? (
+                  <div className="empty-state" style={{ padding: 40, textAlign: "center" }}>
+                    <p>Bu dönem için satış verisi bulunamadı.</p>
+                  </div>
+                ) : (() => {
+                  const shownSeries = trendRep === ""
+                    ? trend.series
+                    : trend.series.filter((s) => String(s.user_id) === String(trendRep));
+                  const chartData = (trend.labels || []).map((lab, i) => {
+                    const row = { name: lab };
+                    (trend.series || []).forEach((s) => { row[`u${s.user_id}`] = s.data[i]; });
+                    return row;
+                  });
+                  return (
+                    <div style={{ padding: "8px 0" }}>
+                      <ResponsiveContainer width="100%" height={320}>
+                        <LineChart data={chartData}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="var(--border-light)" />
+                          <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+                          <YAxis tick={{ fontSize: 11 }} />
+                          <Tooltip formatter={(v) => `${Number(v).toLocaleString("tr-TR")} ₺`} />
+                          <Legend />
+                          {shownSeries.map((s) => (
+                            <Line
+                              key={s.user_id}
+                              type="monotone"
+                              dataKey={`u${s.user_id}`}
+                              name={s.user_name}
+                              stroke={s.cluster_index != null ? COLORS[s.cluster_index % COLORS.length] : "#94a3b8"}
+                              strokeWidth={2}
+                              dot={{ r: 3 }}
+                            />
+                          ))}
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </div>
+                  );
+                })()}
               </div>
             )}
 
