@@ -1133,6 +1133,45 @@ tbody tr:last-child td { border-bottom: none; }
   display: none;
 }
 
+/* ═══ Masaüstü sidebar aç/kapat (tam ekran) ═══ */
+.sidebar { transition: transform 0.25s ease; }
+.content { transition: margin-left 0.25s ease; }
+
+.sidebar-toggle {
+  display: flex;
+  position: fixed;
+  top: 14px;
+  left: 206px;
+  z-index: 200;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255,255,255,0.14);
+  color: #fff;
+  transition: left 0.25s ease, background 0.15s ease;
+}
+.sidebar-toggle:hover { background: rgba(255,255,255,0.26); }
+
+@media (min-width: 769px) {
+  .app.sidebar-collapsed .sidebar { transform: translateX(-100%); }
+  .app.sidebar-collapsed .content { margin-left: 0; }
+  .app.sidebar-collapsed .page-toolbar { padding-left: 64px; }
+  .app.sidebar-collapsed .sidebar-toggle {
+    left: 14px;
+    background: var(--brand-gradient);
+    box-shadow: 0 2px 10px rgba(99,102,241,0.4);
+  }
+}
+
+/* Mobilde masaüstü toggle gizli (hamburger kullanılır) */
+@media (max-width: 768px) {
+  .sidebar-toggle { display: none; }
+}
+
 /* Harita container — varsayılan yükseklik */
 .map-container-responsive {
   height: 380px;

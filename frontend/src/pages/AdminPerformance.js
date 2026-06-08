@@ -26,6 +26,8 @@ export default function AdminPerformance() {
       start = d.toISOString().slice(0, 10);
     } else if (period === "month") {
       start = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().slice(0, 10);
+    } else if (period === "year") {
+      start = new Date(today.getFullYear(), 0, 1).toISOString().slice(0, 10);
     } else {
       start = end;
     }
@@ -84,6 +86,7 @@ export default function AdminPerformance() {
               { key: "today", label: "Bugün" },
               { key: "week", label: "Bu Hafta" },
               { key: "month", label: "Bu Ay" },
+              { key: "year", label: "Bu Yıl" },
             ].map((p) => (
               <button key={p.key} className={`seg-item ${period === p.key ? "active" : ""}`} onClick={() => setPeriod(p.key)}>
                 {p.label}
