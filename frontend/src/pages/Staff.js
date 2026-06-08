@@ -7,9 +7,15 @@ export default function Staff() {
   const [editUser, setEditUser] = useState(null);
   const [form, setForm] = useState({ full_name: "", email: "", password: "", company: "", role: "sales_rep", cluster_index: "" });
   const [saving, setSaving] = useState(false);
+  const [planRegions, setPlanRegions] = useState(0);
 
   useEffect(() => {
     loadUsers();
+    api.get("/plans/").then((r) => {
+      const completed = (Array.isArray(r.data) ? r.data : []).filter((p) => p.status === "completed");
+      const maxR = completed.reduce((m, p) => Math.max(m, p.st_count || 0), 0);
+      setPlanRegions(maxR);
+    }).catch(() => {});
   }, []);
 
   function loadUsers() {
@@ -85,6 +91,13 @@ export default function Staff() {
 
   const admins = users.filter((u) => u.role === "admin");
   const reps = users.filter((u) => u.role === "sales_rep");
+
+  // Bölge sayısı: tamamlanmış plandaki bölge sayısı veya halihazırda atanmış en yüksek bölge
+  const regionCount = Math.max(
+    planRegions,
+    ...reps.map((u) => (u.cluster_index ?? -1) + 1),
+    0
+  );
 
   return (
     <div>
@@ -246,10 +259,17 @@ export default function Staff() {
               </div>
               {form.role === "sales_rep" && (
                 <div className="form-group">
-                  <label>Atanacak Bölge (Küme No)</label>
-                  <input className="form-input" type="number" min="0" value={form.cluster_index} onChange={(e) => update("cluster_index", e.target.value)} placeholder="Küme numarası (0'dan başlar)" />
+                  <label>Atanacak Bölge</label>
+                  <select className="form-input" value={form.cluster_index} onChange={(e) => update("cluster_index", e.target.value)}>
+                    <option value="">— Bölge atanmadı —</option>
+                    {Array.from({ length: regionCount }, (_, i) => (
+                      <option key={i} value={i}>Bölge {i + 1}</option>
+                    ))}
+                  </select>
                   <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 4 }}>
-                    Tamamlanmış planlardaki küme numarasına göre atama yapın. Sonra da atayabilirsiniz.
+                    {regionCount > 0
+                      ? `Tamamlanmış planda ${regionCount} bölge var. Satış temsilcisi seçtiği bölgenin rota planını görür.`
+                      : "Henüz tamamlanmış bir plan yok. Önce plan oluşturup tamamlayın."}
                   </div>
                 </div>
               )}

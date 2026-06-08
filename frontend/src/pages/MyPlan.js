@@ -43,9 +43,14 @@ export default function MyPlan() {
   const [selectedDay, setSelectedDay] = useState(null);
   const [depot, setDepot] = useState(null);
   const [tab, setTab] = useState("weekly");
-  const user = JSON.parse(localStorage.getItem("user") || "{}");
+  const [user, setUser] = useState(() => JSON.parse(localStorage.getItem("user") || "{}"));
 
   useEffect(() => {
+    // Güncel kullanıcı bilgisi — bölge (cluster_index) admin tarafından değişmiş olabilir
+    api.get("/auth/me").then((r) => {
+      setUser(r.data);
+      localStorage.setItem("user", JSON.stringify(r.data));
+    }).catch(() => {});
     api.get("/plans/").then((r) => {
       const completed = r.data.filter((p) => p.status === "completed");
       setPlans(completed);
