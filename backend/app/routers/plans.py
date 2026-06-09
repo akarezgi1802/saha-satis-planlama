@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from sqlalchemy.orm import Session
 from datetime import datetime
+import os
 import numpy as np
 import time as time_mod
 
@@ -15,6 +16,7 @@ from ..schemas import (
 )
 from ..auth import get_current_user
 from ..services.clustering_milp import run_milp_clustering
+from ..services.clustering_sa import run_simulated_annealing
 from ..services.assignment import run_weekly_assignment
 from ..services.routing import solve_route
 
@@ -24,6 +26,11 @@ REVENUE_TOL = 0.02
 VISIT_TOL = 0.05
 ASSIGNMENT_ALPHA = 0.1
 ASSIGNMENT_LAMBDA = 0.9
+
+# Kümeleme çözücüsü seçimi:
+#   CLUSTER_SOLVER=milp  -> MILP (ağır, yüksek RAM; lokalde kullan)
+#   (ayarlanmazsa)       -> SA   (hafif, Render'da OOM olmadan çalışır)
+CLUSTER_SOLVER = os.getenv("CLUSTER_SOLVER", "sa").lower()
 
 router = APIRouter(prefix="/api/plans", tags=["Planlar"])
 
@@ -271,13 +278,23 @@ def _run_full_pipeline(plan_id: int):
         # ── ADIM 1: KÜMELEME ──
         _update_status(db, plan_id, "clustering")
 
-        clustering_result = run_milp_clustering(
-            x_coords=x, y_coords=y, revenue=rev, visit_freq=vis,
-            n_st=plan.st_count,
-            revenue_tol=REVENUE_TOL,
-            visit_tol=VISIT_TOL,
-            time_limit=14400,
-        )
+        if CLUSTER_SOLVER == "milp":
+            # MILP: ağır/yüksek RAM — lokalde (bol bellek) çalıştırılır
+            clustering_result = run_milp_clustering(
+                x_coords=x, y_coords=y, revenue=rev, visit_freq=vis,
+                n_st=plan.st_count,
+                revenue_tol=REVENUE_TOL,
+                visit_tol=VISIT_TOL,
+                time_limit=14400,
+            )
+        else:
+            # SA: hafif — Render'da OOM olmadan çalışır (süresiz, kendi yakınsamasıyla durur)
+            clustering_result = run_simulated_annealing(
+                x_coords=x, y_coords=y, revenue=rev, visit_freq=vis,
+                n_st=plan.st_count,
+                revenue_tol=REVENUE_TOL,
+                visit_tol=VISIT_TOL,
+            )
 
         if _is_cancelled(db, plan_id):
             _clean_plan_data(db, plan_id)
