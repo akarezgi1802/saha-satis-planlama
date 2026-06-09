@@ -88,17 +88,25 @@ app = FastAPI(
 
 @app.on_event("startup")
 def cleanup_stuck_plans():
-    """Sunucu yeniden başlatıldığında çalışır durumda kalmış planları iptal et."""
+    """Sunucu yeniden başlatıldığında çalışır durumda kalmış planları iptal et.
+
+    ÖNEMLİ: Yalnızca bu sunucuda (web'den) başlatılmış planlara dokunulur.
+    Web'den başlatılan planlar run_started_at alanını doldurur. Lokalde
+    (solve_local.py / _run_full_pipeline doğrudan) çözülen planlar
+    run_started_at = NULL bırakır; bunlar başka bir makinede çözülüyor
+    olabileceği için ASLA iptal edilmez.
+    """
     db = SessionLocal()
     try:
         stuck = db.query(Plan).filter(
-            Plan.status.in_(["clustering", "assignment", "routing"])
+            Plan.status.in_(["clustering", "assignment", "routing"]),
+            Plan.run_started_at.isnot(None),
         ).all()
         for plan in stuck:
             plan.status = "interrupted"
         if stuck:
             db.commit()
-            print(f"[startup] {len(stuck)} takılı plan iptal edildi")
+            print(f"[startup] {len(stuck)} takılı (web) plan iptal edildi")
     finally:
         db.close()
 

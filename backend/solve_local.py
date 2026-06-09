@@ -27,4 +27,7 @@ from app.database import SessionLocal
 from app.models import Plan
 db = SessionLocal()
 p = db.query(Plan).filter(Plan.id == PLAN_ID).first()
-print(f"=== BİTTİ === Plan {PLAN_ID} durum: {p.status} | mesafe: {p.total_distance}", flush=True)
+if p:
+    print(f"=== BİTTİ === Plan {PLAN_ID} durum: {p.status} | mesafe: {p.total_distance}", flush=True)
+else:
+    print(f"=== Plan {PLAN_ID} bulunamadı (silinmiş olabilir). Önce arayüzden plan oluşturun. ===", flush=True)
