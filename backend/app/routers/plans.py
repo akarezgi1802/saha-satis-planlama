@@ -261,11 +261,34 @@ def _clean_plan_data(db, plan_id):
     db.commit()
 
 
+def _refresh_session(db):
+    """Uzun çözücü çağrılarından önce/sonra session'ı yenile.
+
+    NEDEN GEREKLİ: MILP/SA çözücüleri 10 dakikadan saatlere kadar sürebilir;
+    bu süre boyunca açık bir DB session'ı (transaction) Neon tarafında idle
+    sayılıp KAPATILIR. Çözücü bittikten sonra eski session'la DB'ye yazmaya
+    çalışmak "SSL connection closed" → PendingRollbackError verir.
+
+    Çözüm: çözücüden ÖNCE eski session'ı kapat (boşta tutma), ÇÖZÜCÜ
+    BİTTİĞİNDE yeni session aç. pool_pre_ping=True olduğu için yeni session
+    taze bir bağlantı alır.
+    """
+    if db is not None:
+        try:
+            db.close()
+        except Exception:
+            pass
+    return SessionLocal()
+
+
 def _run_full_pipeline(plan_id: int):
     db = SessionLocal()
     try:
         t0 = time_mod.time()
+        # Tüm DB verisini bir kez Python belleğine kopyala — uzun çözücüler
+        # boyunca DB ile konuşmamak için.
         plan = db.query(Plan).filter(Plan.id == plan_id).first()
+        st_count = plan.st_count
         customers = db.query(Customer).all()
         cust_ids = [c.id for c in customers]
         x = np.array([c.x for c in customers])
@@ -273,16 +296,24 @@ def _run_full_pipeline(plan_id: int):
         rev = np.array([c.monthly_revenue for c in customers])
         vis = np.array([c.visit_frequency for c in customers])
 
-        _clean_plan_data(db, plan_id)
+        settings = db.query(AppSettings).first()
+        depot_x = settings.depot_x if settings else 38.6567541
+        depot_y = settings.depot_y if settings else 27.3435846
 
-        # ── ADIM 1: KÜMELEME ──
+        _clean_plan_data(db, plan_id)
         _update_status(db, plan_id, "clustering")
+
+        # ── ADIM 1: KÜMELEME ── (uzun çağrı → session'ı kapat)
+        db = _refresh_session(db)
+        # NOT: db'ye değil, db = None ile temizle. Çözücü sırasında bağlantı yok.
+        db.close()
+        db = None
 
         if CLUSTER_SOLVER == "milp":
             # MILP: ağır/yüksek RAM — lokalde (bol bellek) çalıştırılır
             clustering_result = run_milp_clustering(
                 x_coords=x, y_coords=y, revenue=rev, visit_freq=vis,
-                n_st=plan.st_count,
+                n_st=st_count,
                 revenue_tol=REVENUE_TOL,
                 visit_tol=VISIT_TOL,
                 time_limit=14400,
@@ -291,10 +322,13 @@ def _run_full_pipeline(plan_id: int):
             # SA: hafif — Render'da OOM olmadan çalışır (süresiz, kendi yakınsamasıyla durur)
             clustering_result = run_simulated_annealing(
                 x_coords=x, y_coords=y, revenue=rev, visit_freq=vis,
-                n_st=plan.st_count,
+                n_st=st_count,
                 revenue_tol=REVENUE_TOL,
                 visit_tol=VISIT_TOL,
             )
+
+        # Çözücü bitti — TAZE bağlantı al
+        db = _refresh_session(db)
 
         if _is_cancelled(db, plan_id):
             _clean_plan_data(db, plan_id)
@@ -303,7 +337,7 @@ def _run_full_pipeline(plan_id: int):
         clusters = clustering_result["clusters"]
         if not clusters:
             raise RuntimeError(
-                f"MILP feasible cozum bulunamadi. "
+                f"Feasible cozum bulunamadi. "
                 f"Durum: {clustering_result.get('details', {}).get('status', '?')}. "
                 f"Toleranslari (rev={REVENUE_TOL}, vis={VISIT_TOL}) artirmayi deneyin."
             )
@@ -330,10 +364,6 @@ def _run_full_pipeline(plan_id: int):
         for ci, cluster_data in clusters.items():
             cluster_map[ci] = cluster_data["customer_indices"]
 
-        settings = db.query(AppSettings).first()
-        depot_x = settings.depot_x if settings else 38.6567541
-        depot_y = settings.depot_y if settings else 27.3435846
-
         all_day_customers = {}
 
         for ci, cust_indices in cluster_map.items():
@@ -346,6 +376,9 @@ def _run_full_pipeline(plan_id: int):
                 f = int(vis[i])
                 weekly_freqs[i] = max(1, min(f, 3))
 
+            # Uzun atama çağrısı — DB session'ı kapat
+            db.close()
+            db = None
             result = run_weekly_assignment(
                 customer_indices=cust_indices,
                 x_coords=x, y_coords=y,
@@ -355,6 +388,8 @@ def _run_full_pipeline(plan_id: int):
                 alpha=ASSIGNMENT_ALPHA,
                 time_limit=3600,
             )
+            # Taze bağlantı al ve yaz
+            db = _refresh_session(db)
 
             if result is None:
                 raise RuntimeError(f"Küme {ci} için atama çözümü bulunamadı")
@@ -368,11 +403,10 @@ def _run_full_pipeline(plan_id: int):
                         day_of_week=day,
                     )
                     db.add(wa)
+            db.commit()
 
             for day, day_custs in result["day_customers"].items():
                 all_day_customers[(ci, day)] = day_custs
-
-        db.commit()
 
         # ── ADIM 3: ROTALAMA ──
         if _is_cancelled(db, plan_id):
@@ -390,12 +424,16 @@ def _run_full_pipeline(plan_id: int):
                 _clean_plan_data(db, plan_id)
                 return
 
+            # Rotalama tek tek hızlı ama yine de tutarlı olsun
+            db.close()
+            db = None
             route_result = solve_route(
                 customer_indices=day_custs,
                 x_coords=x, y_coords=y,
                 depot_x=depot_x, depot_y=depot_y,
                 time_limit=900,
             )
+            db = _refresh_session(db)
 
             arrival_times = route_result.get("arrival_times", {})
 
@@ -418,6 +456,7 @@ def _run_full_pipeline(plan_id: int):
                     estimated_arrival_minutes=arrival_times.get(cust_idx),
                 )
                 db.add(rs)
+            db.commit()
 
             total_distance += route_result["total_distance"]
             total_time += route_result.get("total_time", 0)
@@ -429,9 +468,33 @@ def _run_full_pipeline(plan_id: int):
         db.commit()
 
     except Exception as e:
-        plan = db.query(Plan).filter(Plan.id == plan_id).first()
-        if plan and plan.status != "cancelled":
-            plan.status = f"error: {str(e)[:200]}"
-            db.commit()
+        # Uzun çözücü sırasında hata olursa db=None olabilir — taze session aç
+        if db is None:
+            db = SessionLocal()
+        else:
+            try:
+                db.rollback()
+            except Exception:
+                pass
+        try:
+            plan = db.query(Plan).filter(Plan.id == plan_id).first()
+            if plan and plan.status != "cancelled":
+                plan.status = f"error: {str(e)[:200]}"
+                db.commit()
+        except Exception:
+            # DB tamamen kopuksa: en azından yeni session ile dene
+            try:
+                db.close()
+            except Exception:
+                pass
+            db = SessionLocal()
+            plan = db.query(Plan).filter(Plan.id == plan_id).first()
+            if plan and plan.status != "cancelled":
+                plan.status = f"error: {str(e)[:200]}"
+                db.commit()
     finally:
-        db.close()
+        if db is not None:
+            try:
+                db.close()
+            except Exception:
+                pass

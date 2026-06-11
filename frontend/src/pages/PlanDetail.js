@@ -68,16 +68,22 @@ export default function PlanDetail() {
   }, [plan?.status, id]);
 
   useEffect(() => {
-    if (plan && isRunning(plan.status) && plan.run_started_at) {
-      const ts = plan.run_started_at.endsWith("Z") ? plan.run_started_at : plan.run_started_at + "Z";
+    if (plan && isRunning(plan.status)) {
+      // Web başlatmaları run_started_at'ı doldurur. Lokal başlatmalarda (solve_local.py)
+      // run_started_at = NULL bırakılır (cleanup_stuck_plans Render restart'ta lokal
+      // plana dokunmasın diye). Bu durumda created_at'tan saymaya başla — yaklaşık
+      // doğru sonuç verir.
+      const startSource = plan.run_started_at || plan.created_at;
+      if (!startSource) return;
+      const ts = startSource.endsWith("Z") ? startSource : startSource + "Z";
       const startMs = new Date(ts).getTime();
-      const tick = () => setElapsed(Math.floor((Date.now() - startMs) / 1000));
+      const tick = () => setElapsed(Math.max(0, Math.floor((Date.now() - startMs) / 1000)));
       tick();
       const pollInterval = setInterval(loadPlan, 3000);
       const tickInterval = setInterval(tick, 1000);
       return () => { clearInterval(pollInterval); clearInterval(tickInterval); };
     }
-  }, [plan?.status, plan?.run_started_at, loadPlan]);
+  }, [plan?.status, plan?.run_started_at, plan?.created_at, loadPlan]);
 
   const handleRun = async () => {
     setElapsed(0);

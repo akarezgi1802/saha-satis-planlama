@@ -15,11 +15,27 @@ import app.routers.plans as P
 
 PLAN_ID = int(sys.argv[1]) if len(sys.argv) > 1 else 7
 
-# Time limit'lere DOKUNULMUYOR — uygulamadaki orijinal değerler kullanılır
-# (kümeleme 14400s, atama 3600s, rotalama 900s). CBC, %5 gap'e ulaşınca
-# zaten erken durur; lokalde bol RAM olduğu için tam kaliteli çözüm hedeflenir.
+# ── ORİJİNAL DAVRANIS ──
+# Time limit'lere normalde DOKUNULMAZ: kümeleme 14400s, atama 3600s, rotalama 900s.
+# CBC, %5 gap'e ulaşınca zaten erken durur; lokalde bol RAM olduğu için tam
+# kaliteli çözüm hedeflenir.
 
-print(f"=== Plan {PLAN_ID} LOKAL çözülüyor (MILP, orijinal time_limit, Neon'a yazılacak) ===", flush=True)
+# ── TEST MODU (opsiyonel) ──
+# TEST_CLUSTER_LIMIT env varsa SADECE kümeleme time_limit'i bu değerle override
+# edilir — refactor (session yenileme + DB yazma akışı) doğrulaması için.
+# Atama ve rotalama orijinal değerlerde kalır (zaten kısa biterler).
+_test_limit = os.environ.get("TEST_CLUSTER_LIMIT")
+if _test_limit:
+    _test_limit = int(_test_limit)
+    _orig_milp = P.run_milp_clustering
+    def _patched_milp(**kw):
+        kw["time_limit"] = _test_limit
+        return _orig_milp(**kw)
+    P.run_milp_clustering = _patched_milp
+    print(f"[TEST MODU] MILP kümeleme time_limit override: {_test_limit}s "
+          f"({_test_limit/60:.0f} dk) — refactor testi.", flush=True)
+
+print(f"=== Plan {PLAN_ID} LOKAL çözülüyor (MILP, Neon'a yazılacak) ===", flush=True)
 P._run_full_pipeline(PLAN_ID)
 
 # Sonuç durumu
