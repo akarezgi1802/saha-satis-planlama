@@ -4,14 +4,17 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import api from "../api";
 
-// estimated_arrival_minutes: günün başından (08:00 = 480 dk) toplam dakika.
-// Saat:dakika formatına çevirir. Örn: 497 -> "08:17", 540 -> "09:00"
+// estimated_arrival_minutes: rota başlangıcından (08:00 = 480 dk) bu durağa
+// kadar geçen kümülatif dakika. Sabit 08:00 yerine ST'nin sayfayı açtığı
+// GERÇEK saati referans alıyoruz: "şu an + yolda kalan dk". Örn: ilk durak
+// diff=17 dk ise ve şu an 17:07 ise -> 17:24. Sayfa açıkken sayaç ilerlesin
+// diye MyPlan bileşeninde 60 sn'lik tick re-render tetikler.
+const ROUTE_START_MIN = 480;
 function fmtArrival(totalMin) {
   if (totalMin == null) return "—";
-  const m = Math.round(totalMin);
-  const h = Math.floor(m / 60);
-  const mm = m % 60;
-  return `${String(h).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
+  const diff = Math.max(0, Math.round(totalMin) - ROUTE_START_MIN);
+  const arrival = new Date(Date.now() + diff * 60_000);
+  return `${String(arrival.getHours()).padStart(2, "0")}:${String(arrival.getMinutes()).padStart(2, "0")}`;
 }
 
 const COLORS = ["#6366f1", "#f59e0b", "#10b981", "#ef4444", "#8b5cf6", "#ec4899", "#14b8a6", "#f97316", "#3b82f6", "#84cc16", "#06b6d4", "#e11d48"];
@@ -34,6 +37,12 @@ export default function MyPlan() {
   const [depot, setDepot] = useState(null);
   const [tab, setTab] = useState("weekly");
   const [user, setUser] = useState(() => JSON.parse(localStorage.getItem("user") || "{}"));
+  // "Şu an + diff" varış saatleri için 60 sn'lik re-render tick'i
+  const [, setNowTick] = useState(Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNowTick(Date.now()), 60_000);
+    return () => clearInterval(id);
+  }, []);
 
   useEffect(() => {
     // Güncel kullanıcı bilgisi — bölge (cluster_index) admin tarafından değişmiş olabilir

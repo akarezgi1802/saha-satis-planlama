@@ -47,6 +47,13 @@ export default function LeafletPlanMap({
   // Trafik banner: tek satır kompakt pill (collapsed) / detay (expanded)
   const [overlayOpen, setOverlayOpen] = useState(false);
   const [trafficOpen, setTrafficOpen] = useState(false);
+  // 60 sn'lik tick: tahmini varış saatlerini "şimdi + diff" üzerinden
+  // canlı tutmak için re-render tetikler.
+  const [, setNowTick] = useState(Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNowTick(Date.now()), 60_000);
+    return () => clearInterval(id);
+  }, []);
   // Map bounds için tüm koordinatlar
   const bounds = React.useMemo(() => {
     const pts = [];
@@ -236,16 +243,16 @@ export default function LeafletPlanMap({
   );
 }
 
-// estimated_arrival_minutes backend tarafından "günün başlangıcından
-// (08:00 = 480 dk) itibaren toplam dakika" olarak gönderilir.
-// Bunu "yolda kalan süre" değil, varış SAATİ olarak göstermek doğru.
-// Örn: 497 -> "08:17" (yolda 8 saat değil, saat 08:17'de varır).
+// estimated_arrival_minutes backend kümülatif dakika (08:00 = 480 referansı).
+// Burada sabit saat yerine "şu an + yolda kalan dk" gösteriyoruz:
+// diff = minutes - 480, arrival = Date.now() + diff*60s. Component'teki
+// 60 sn tick yeniden render'ı tetikleyip değerin akışkan kalmasını sağlar.
+const ROUTE_START_MIN = 480;
 function fmtMin(m) {
   if (m == null) return '—';
-  const total = Math.max(0, Math.round(m));
-  const h = Math.floor(total / 60);
-  const mm = total % 60;
-  return `${String(h).padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
+  const diff = Math.max(0, Math.round(m) - ROUTE_START_MIN);
+  const arrival = new Date(Date.now() + diff * 60_000);
+  return `${String(arrival.getHours()).padStart(2, '0')}:${String(arrival.getMinutes()).padStart(2, '0')}`;
 }
 
 const styles = StyleSheet.create({

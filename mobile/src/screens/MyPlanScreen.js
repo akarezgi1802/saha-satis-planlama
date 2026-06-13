@@ -54,6 +54,14 @@ export default function MyPlanScreen({ navigation }) {
   const [visits, setVisits] = useState([]);
   const [liveRoute, setLiveRoute] = useState(null);
   const [liveLoading, setLiveLoading] = useState(false);
+  // Saat ilerledikçe "tahmini varış" hesabı (şimdi + yolda kalan dk) yeniden
+  // hesaplansın diye 60 sn'de bir tetiklenen tick. Değer kullanılmıyor —
+  // sadece re-render için.
+  const [, setNowTick] = useState(Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNowTick(Date.now()), 60_000);
+    return () => clearInterval(id);
+  }, []);
 
   const load = useCallback(async () => {
     setError('');
@@ -633,16 +641,18 @@ function ListPlanView({ stops, isVisited, progressPercent, visitedCount, totalDi
   );
 }
 
-// estimated_arrival_minutes backend tarafından "günün başlangıcından
-// (08:00 = 480 dk) itibaren toplam dakika" olarak gönderilir.
-// Bunu "yolda kalan süre" değil, varış SAATİ olarak göstermek doğru.
-// Örn: 497 -> "08:17" (yolda 8 saat değil, saat 08:17'de varır).
+// estimated_arrival_minutes backend tarafından "rota başlangıcından
+// (08:00 = 480 dk) bu durağa kadar olan kümülatif dakika" olarak gönderilir.
+// Sabit 08:00 yerine ST'nin uygulamayı açtığı GERÇEK saati referans alıyoruz:
+// "şu an + yolda kalan dk". Örn: ilk durak için diff=17 dk ise ve şu an
+// 17:07 ise -> 17:24. Her render'da Date.now() yeniden okunur, MyPlanScreen
+// içindeki 60 sn tick re-render'ı tetikler, dolayısıyla saat akışkan.
+const ROUTE_START_MIN = 480;
 function fmtMin(m) {
   if (m == null) return '—';
-  const total = Math.max(0, Math.round(m));
-  const h = Math.floor(total / 60);
-  const mm = total % 60;
-  return `${String(h).padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
+  const diff = Math.max(0, Math.round(m) - ROUTE_START_MIN);
+  const arrival = new Date(Date.now() + diff * 60_000);
+  return `${String(arrival.getHours()).padStart(2, '0')}:${String(arrival.getMinutes()).padStart(2, '0')}`;
 }
 
 const styles = StyleSheet.create({

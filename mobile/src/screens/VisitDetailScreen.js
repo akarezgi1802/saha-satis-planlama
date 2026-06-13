@@ -725,16 +725,16 @@ export default function VisitDetailScreen({ route, navigation }) {
   );
 }
 
-// estimated_arrival_minutes backend tarafından "günün başlangıcından
-// (08:00 = 480 dk) itibaren toplam dakika" olarak gönderilir.
-// Bunu "yolda kalan süre" değil, varış SAATİ olarak göstermek doğru.
-// Örn: 497 -> "08:17" (yolda 8 saat değil, saat 08:17'de varır).
+// estimated_arrival_minutes backend kümülatif dakika (08:00 = 480 referansı).
+// "şu an + yolda kalan dk" olarak gösteriyoruz; ekran tek seferde açıldığı
+// için tick gerekmiyor (kullanıcı geri dönüp tekrar açtığında değer
+// yeniden hesaplanır).
+const ROUTE_START_MIN = 480;
 function fmtMin(m) {
   if (m == null) return '—';
-  const total = Math.max(0, Math.round(m));
-  const h = Math.floor(total / 60);
-  const mm = total % 60;
-  return `${String(h).padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
+  const diff = Math.max(0, Math.round(m) - ROUTE_START_MIN);
+  const arrival = new Date(Date.now() + diff * 60_000);
+  return `${String(arrival.getHours()).padStart(2, '0')}:${String(arrival.getMinutes()).padStart(2, '0')}`;
 }
 
 function InfoCell({ label, value }) {

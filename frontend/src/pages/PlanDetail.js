@@ -13,6 +13,18 @@ const COLORS = ["#6366f1", "#ef4444", "#10b981", "#f59e0b", "#3b82f6", "#8b5cf6"
 const DAY_NAMES = { 1: "Pazartesi", 2: "Salı", 3: "Çarşamba", 4: "Perşembe", 5: "Cuma", 6: "Cumartesi" };
 const DAY_SHORT = { 1: "Pzt", 2: "Salı", 3: "Çar", 4: "Per", 5: "Cum", 6: "Cmt" };
 
+// Backend estimated_arrival_minutes = "rota başlangıcından (08:00 = 480 dk)
+// bu durağa kadar olan kümülatif dakika". Admin paneli ST'nin perspektifini
+// taklit ediyor: sabit saat yerine "şu an + yolda kalan dk" göster.
+// Sayfa açıkken canlı kalsın diye RoutesTab'da 60 sn'lik tick var.
+const ROUTE_START_MIN = 480;
+function fmtArrival(totalMin) {
+  if (totalMin == null) return "—";
+  const diff = Math.max(0, Math.round(totalMin) - ROUTE_START_MIN);
+  const arrival = new Date(Date.now() + diff * 60_000);
+  return `${String(arrival.getHours()).padStart(2, "0")}:${String(arrival.getMinutes()).padStart(2, "0")}`;
+}
+
 const depotIcon = L.divIcon({
   className: "",
   html: `<div style="width:36px;height:36px;border-radius:12px;background:linear-gradient(135deg,#ef4444,#f97316);color:#fff;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;border:3px solid #fff;box-shadow:0 3px 10px rgba(239,68,68,0.4);letter-spacing:-0.5px">D</div>`,
@@ -682,6 +694,12 @@ function WeeklyTab({ results, stList, users = [] }) {
 function RoutesTab({ results, stList, users = [] }) {
   const [filterST, setFilterST] = useState(stList[0] ?? 0);
   const [filterDay, setFilterDay] = useState(1);
+  // "Şu an + diff" varış saatlerini canlı tut (60 sn'de bir re-render)
+  const [, setNowTick] = useState(Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNowTick(Date.now()), 60_000);
+    return () => clearInterval(id);
+  }, []);
 
   const repMap = {};
   users.filter((u) => u.role === "sales_rep" && u.cluster_index !== null).forEach((u) => {
@@ -776,7 +794,7 @@ function RoutesTab({ results, stList, users = [] }) {
                           <div style={{ fontSize: 13 }}>
                             <strong>{s.customer_name}</strong><br />
                             Sıra: {s.visit_order}
-                            {s.estimated_arrival_minutes != null && <><br />Varış: {s.estimated_arrival_minutes.toFixed(0)} dk</>}
+                            {s.estimated_arrival_minutes != null && <><br />Varış: {fmtArrival(s.estimated_arrival_minutes)}</>}
                           </div>
                         </Popup>
                       </Marker>
@@ -800,7 +818,7 @@ function RoutesTab({ results, stList, users = [] }) {
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ fontWeight: 700, fontSize: 13 }}>{s.customer_name}</div>
                           <div style={{ fontSize: 11, color: "var(--text-secondary)" }}>
-                            {s.estimated_arrival_minutes != null ? `${s.estimated_arrival_minutes.toFixed(0)} dk` : ""}
+                            {s.estimated_arrival_minutes != null ? `Varış ${fmtArrival(s.estimated_arrival_minutes)}` : ""}
                           </div>
                         </div>
                         <a href={`https://www.google.com/maps/dir/?api=1&destination=${s.x},${s.y}`}
@@ -831,7 +849,7 @@ function RoutesTab({ results, stList, users = [] }) {
                             }}>{s.visit_order}</span>
                           </td>
                           <td className="cell-bold">{s.customer_name}</td>
-                          <td className="cell-mono">{s.estimated_arrival_minutes != null ? `${s.estimated_arrival_minutes.toFixed(0)} dk` : "—"}</td>
+                          <td className="cell-mono">{fmtArrival(s.estimated_arrival_minutes)}</td>
                           <td>
                             <a href={`https://www.google.com/maps/dir/?api=1&destination=${s.x},${s.y}`}
                               target="_blank" rel="noopener noreferrer" className="btn btn-emphasized btn-xs">
