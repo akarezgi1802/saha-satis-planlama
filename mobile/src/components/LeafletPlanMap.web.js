@@ -208,11 +208,16 @@ export default function LeafletPlanMap({
   );
 }
 
+// estimated_arrival_minutes backend tarafından "günün başlangıcından
+// (08:00 = 480 dk) itibaren toplam dakika" olarak gönderilir.
+// Bunu "yolda kalan süre" değil, varış SAATİ olarak göstermek doğru.
+// Örn: 497 -> "08:17" (yolda 8 saat değil, saat 08:17'de varır).
 function fmtMin(m) {
   if (m == null) return '—';
-  const h = Math.floor(m / 60);
-  const mm = Math.round(m % 60);
-  return h > 0 ? `${h}sa ${mm}dk` : `${mm}dk`;
+  const total = Math.max(0, Math.round(m));
+  const h = Math.floor(total / 60);
+  const mm = total % 60;
+  return `${String(h).padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
 }
 
 const styles = StyleSheet.create({
