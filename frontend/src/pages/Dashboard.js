@@ -680,10 +680,7 @@ export default function Dashboard() {
                           </td>
                           <td className="cell-bold">{regionLabel(ci)}</td>
                           <td>
-                            <span className="badge-freq" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-                              <span style={{ width: 10, height: 10, borderRadius: "50%", background: COLORS[ci % COLORS.length], border: "1px solid rgba(0,0,0,0.1)" }} />
-                              Bölge {ci + 1}
-                            </span>
+                            <span className="badge-freq">Bölge {ci + 1}</span>
                           </td>
                           <td className="cell-mono">{custs.length}</td>
                           <td className="cell-mono">{Number(rev).toLocaleString("tr-TR")} ₺</td>
