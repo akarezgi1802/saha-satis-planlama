@@ -24,6 +24,16 @@ function fmtTime(iso) {
   try { return new Date(iso).toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" }); } catch { return "—"; }
 }
 
+// estimated_arrival_minutes: günün başından (08:00 = 480 dk) toplam dakika.
+// Saat:dakika formatına çevirir. Örn: 497 -> "08:17", 540 -> "09:00"
+function fmtArrival(totalMin) {
+  if (totalMin == null) return "—";
+  const m = Math.round(totalMin);
+  const h = Math.floor(m / 60);
+  const mm = m % 60;
+  return `${String(h).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
+}
+
 const COLORS = ["#6366f1", "#f59e0b", "#10b981", "#ef4444", "#8b5cf6", "#ec4899", "#14b8a6", "#f97316", "#3b82f6", "#84cc16", "#06b6d4", "#e11d48"];
 const DAY_NAMES = { 1: "Pazartesi", 2: "Salı", 3: "Çarşamba", 4: "Perşembe", 5: "Cuma", 6: "Cumartesi" };
 const DAY_SHORT = { 1: "Pzt", 2: "Salı", 3: "Çar", 4: "Per", 5: "Cum", 6: "Cmt" };
@@ -110,15 +120,6 @@ export default function MyPlan() {
     <div>
       <div className="page-toolbar">
         <h1>Benim Planım — Bölge {user.cluster_index + 1}</h1>
-        <div className="toolbar-actions">
-          {plans.length > 0 && (
-            <select className="form-input" style={{ width: "100%", maxWidth: 220 }} value={selectedPlan || ""} onChange={(e) => setSelectedPlan(Number(e.target.value))}>
-              {plans.map((p) => (
-                <option key={p.id} value={p.id}>{p.name}{p.is_active ? " (Aktif)" : ""}</option>
-              ))}
-            </select>
-          )}
-        </div>
       </div>
       <div className="page-body">
         {loading ? (
@@ -410,7 +411,7 @@ function DailyPlanTab({ data, depot, days, selectedDay, setSelectedDay }) {
                       <div style={{ fontSize: 13, minWidth: 160 }}>
                         <strong>{s.visit_order}. {s.customer_name}</strong>
                         {s.estimated_arrival_minutes != null && (
-                          <><br />Tahmini varış: {Math.round(s.estimated_arrival_minutes)} dk</>
+                          <><br />Tahmini varış: {fmtArrival(s.estimated_arrival_minutes)}</>
                         )}
                       </div>
                     </Popup>
@@ -461,7 +462,7 @@ function DailyPlanTab({ data, depot, days, selectedDay, setSelectedDay }) {
                         </td>
                         <td className="cell-bold">{s.customer_name}</td>
                         <td className="cell-mono">
-                          {s.estimated_arrival_minutes != null ? `${Math.round(s.estimated_arrival_minutes)} dk` : "—"}
+                          {fmtArrival(s.estimated_arrival_minutes)}
                         </td>
                         <td>
                           <a href={navUrl} target="_blank" rel="noopener noreferrer" className="btn btn-emphasized btn-xs">
