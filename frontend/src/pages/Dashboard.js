@@ -193,7 +193,15 @@ export default function Dashboard() {
       const all = r.data;
       setPlans(all);
       const completed = all.filter((p) => p.status === "completed");
-      if (completed.length > 0) setSelectedPlan(completed[0].id);
+      api.get("/plans/active").then((r2) => {
+        if (r2.data && r2.data.id) {
+          setSelectedPlan(r2.data.id);
+        } else if (completed.length > 0) {
+          setSelectedPlan(completed[0].id);
+        }
+      }).catch(() => {
+        if (completed.length > 0) setSelectedPlan(completed[0].id);
+      });
     });
     // Karbon verileri
     api.get("/carbon/summary").then((r) => setCarbonSummary(r.data)).catch(() => {});
@@ -294,7 +302,7 @@ export default function Dashboard() {
               onChange={(e) => setSelectedPlan(Number(e.target.value))}
             >
               {completedPlans.map((p) => (
-                <option key={p.id} value={p.id}>{p.name}</option>
+                <option key={p.id} value={p.id}>{p.name}{p.is_active ? " (Aktif)" : ""}</option>
               ))}
             </select>
           )}

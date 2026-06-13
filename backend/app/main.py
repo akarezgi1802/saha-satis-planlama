@@ -29,6 +29,8 @@ def _run_migrations():
         "ALTER TABLE sales_visits ADD COLUMN IF NOT EXISTS distance_from_customer_m FLOAT NULL",
         "ALTER TABLE customers ADD COLUMN IF NOT EXISTS tax_number VARCHAR(30) NULL",
         "ALTER TABLE customers ADD COLUMN IF NOT EXISTS tax_office VARCHAR(100) NULL",
+        # Aktif plan bayragi (Dashboard/MyPlan otomatik seçim icin)
+        "ALTER TABLE plans ADD COLUMN IF NOT EXISTS is_active INTEGER DEFAULT 0",
         # ── Filo & Karbon tabloları ──
         """CREATE TABLE IF NOT EXISTS vehicle_types (
             id SERIAL PRIMARY KEY,

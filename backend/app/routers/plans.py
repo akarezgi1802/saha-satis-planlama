@@ -40,6 +40,52 @@ def list_plans(db: Session = Depends(get_db)):
     return db.query(Plan).order_by(Plan.created_at.desc()).all()
 
 
+@router.get("/active", response_model=PlanOut | None)
+def get_active_plan(db: Session = Depends(get_db)):
+    """Şu anda aktif olarak isaretli plan (Dashboard ve ST'lerin gordugu).
+
+    Yoksa None döner — frontend bu durumda fallback olarak en son completed
+    plana bakabilir.
+    """
+    return (
+        db.query(Plan)
+        .filter(Plan.is_active == 1, Plan.status == "completed")
+        .order_by(Plan.created_at.desc())
+        .first()
+    )
+
+
+@router.post("/{plan_id}/activate", response_model=PlanOut)
+def activate_plan(plan_id: int, db: Session = Depends(get_db)):
+    """Bu plani aktif yap, diger TUM planlari pasif yap.
+
+    Sadece 'completed' planlar aktif yapilabilir (yarim plan gosterilmez).
+    Tek bir SQL transaction'da: tum is_active=0, sonra bu id'ye is_active=1.
+    """
+    plan = db.query(Plan).filter(Plan.id == plan_id).first()
+    if not plan:
+        raise HTTPException(status_code=404, detail="Plan bulunamadı")
+    if plan.status != "completed":
+        raise HTTPException(
+            status_code=400,
+            detail="Sadece tamamlanmis planlar aktif yapilabilir"
+        )
+    # Once tum planlari pasif yap, sonra bu plani aktif yap (tek 1 aktif kalir)
+    db.query(Plan).update({Plan.is_active: 0})
+    plan.is_active = 1
+    db.commit()
+    db.refresh(plan)
+    return plan
+
+
+@router.post("/deactivate-all")
+def deactivate_all_plans(db: Session = Depends(get_db)):
+    """Tum planlari pasif yap (aktif plani kaldir)."""
+    db.query(Plan).update({Plan.is_active: 0})
+    db.commit()
+    return {"detail": "Tum planlar pasif yapildi"}
+
+
 @router.get("/{plan_id}", response_model=PlanOut)
 def get_plan(plan_id: int, db: Session = Depends(get_db)):
     plan = db.query(Plan).filter(Plan.id == plan_id).first()

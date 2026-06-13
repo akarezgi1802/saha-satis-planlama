@@ -54,6 +54,16 @@ export default function Plans() {
     }
   };
 
+  const handleActivate = async (e, id) => {
+    e.stopPropagation();
+    try {
+      await api.post(`/plans/${id}/activate`);
+      loadPlans();
+    } catch (err) {
+      alert("Aktif yapma hatası: " + (err.response?.data?.detail || err.message));
+    }
+  };
+
   return (
     <div>
       <div className="page-toolbar">
@@ -65,6 +75,19 @@ export default function Plans() {
         </div>
       </div>
       <div className="page-body">
+        <div
+          style={{
+            background: "#eff6ff",
+            border: "1px solid #bfdbfe",
+            color: "#1e40af",
+            padding: "10px 14px",
+            borderRadius: 6,
+            marginBottom: 12,
+            fontSize: 13,
+          }}
+        >
+          Yalnızca AKTİF plan Gösterge Paneli'nde ve Satış Temsilcileri'nin "Benim Planım" sayfasında görünür. Aynı anda yalnızca 1 plan aktif olabilir.
+        </div>
         <div className="panel">
           {plans.length === 0 ? (
             <div className="empty-state">
@@ -77,6 +100,7 @@ export default function Plans() {
                   <th>Plan Adı</th>
                   <th>ST Sayısı</th>
                   <th>Durum</th>
+                  <th>Aktif</th>
                   <th>Toplam Mesafe</th>
                   <th>Çözüm Süresi</th>
                   <th>Oluşturulma Tarihi</th>
@@ -84,32 +108,71 @@ export default function Plans() {
                 </tr>
               </thead>
               <tbody>
-                {plans.map((p) => (
-                  <tr
-                    key={p.id}
-                    onClick={() => navigate(`/plans/${p.id}`)}
-                    style={{ cursor: "pointer" }}
-                  >
-                    <td className="cell-bold">{p.name}</td>
-                    <td>{p.st_count}</td>
-                    <td><StatusBadge status={p.status} /></td>
-                    <td className="cell-mono">
-                      {p.total_distance != null ? p.total_distance.toFixed(2) + " km" : "—"}
-                    </td>
-                    <td className="cell-mono">
-                      {p.solve_time_seconds != null ? formatDuration(p.solve_time_seconds) : "—"}
-                    </td>
-                    <td className="cell-dim">{new Date(p.created_at).toLocaleString("tr-TR")}</td>
-                    <td className="cell-right">
-                      <button
-                        className="btn btn-negative btn-sm"
-                        onClick={(e) => handleDelete(e, p.id)}
-                      >
-                        Sil
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                {plans.map((p) => {
+                  const isActive = p.is_active === 1;
+                  return (
+                    <tr
+                      key={p.id}
+                      onClick={() => navigate(`/plans/${p.id}`)}
+                      style={{
+                        cursor: "pointer",
+                        borderLeft: isActive ? "4px solid #10b981" : undefined,
+                        background: isActive ? "#f0fdf4" : undefined,
+                      }}
+                    >
+                      <td className="cell-bold">{p.name}</td>
+                      <td>{p.st_count}</td>
+                      <td><StatusBadge status={p.status} /></td>
+                      <td>
+                        {isActive ? (
+                          <span
+                            style={{
+                              display: "inline-block",
+                              background: "#10b98122",
+                              color: "#10b981",
+                              padding: "3px 10px",
+                              borderRadius: 12,
+                              fontSize: 12,
+                              fontWeight: 600,
+                              letterSpacing: 0.3,
+                            }}
+                          >
+                            ● AKTİF
+                          </span>
+                        ) : p.status === "completed" ? (
+                          <button
+                            className="btn btn-sm"
+                            style={{
+                              background: "#10b981",
+                              color: "#fff",
+                              border: "none",
+                            }}
+                            onClick={(e) => handleActivate(e, p.id)}
+                          >
+                            Aktif Yap
+                          </button>
+                        ) : (
+                          <span className="cell-dim">—</span>
+                        )}
+                      </td>
+                      <td className="cell-mono">
+                        {p.total_distance != null ? p.total_distance.toFixed(2) + " km" : "—"}
+                      </td>
+                      <td className="cell-mono">
+                        {p.solve_time_seconds != null ? formatDuration(p.solve_time_seconds) : "—"}
+                      </td>
+                      <td className="cell-dim">{new Date(p.created_at).toLocaleString("tr-TR")}</td>
+                      <td className="cell-right">
+                        <button
+                          className="btn btn-negative btn-sm"
+                          onClick={(e) => handleDelete(e, p.id)}
+                        >
+                          Sil
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           )}

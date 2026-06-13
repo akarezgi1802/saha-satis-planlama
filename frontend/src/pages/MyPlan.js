@@ -54,7 +54,15 @@ export default function MyPlan() {
     api.get("/plans/").then((r) => {
       const completed = r.data.filter((p) => p.status === "completed");
       setPlans(completed);
-      if (completed.length > 0) setSelectedPlan(completed[0].id);
+      api.get("/plans/active").then((r2) => {
+        if (r2.data && r2.data.id) {
+          setSelectedPlan(r2.data.id);
+        } else if (completed.length > 0) {
+          setSelectedPlan(completed[0].id);
+        }
+      }).catch(() => {
+        if (completed.length > 0) setSelectedPlan(completed[0].id);
+      });
     });
     api.get("/settings/depot").then((r) => setDepot(r.data));
   }, []);
@@ -106,7 +114,7 @@ export default function MyPlan() {
           {plans.length > 0 && (
             <select className="form-input" style={{ width: "100%", maxWidth: 220 }} value={selectedPlan || ""} onChange={(e) => setSelectedPlan(Number(e.target.value))}>
               {plans.map((p) => (
-                <option key={p.id} value={p.id}>{p.name}</option>
+                <option key={p.id} value={p.id}>{p.name}{p.is_active ? " (Aktif)" : ""}</option>
               ))}
             </select>
           )}

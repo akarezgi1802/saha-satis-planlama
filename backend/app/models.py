@@ -68,6 +68,9 @@ class Plan(Base):
     total_distance = Column(Float, nullable=True)
     solve_time_seconds = Column(Float, nullable=True)
     run_started_at = Column(DateTime, nullable=True)
+    # Aktif plan bayragi — Dashboard ve ST'lerin "Benim Planim" sayfasi
+    # buna gore otomatik bu plani gosterir. Aynı anda yalnizca 1 plan aktif.
+    is_active = Column(Integer, default=0)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     cluster_assignments = relationship(
