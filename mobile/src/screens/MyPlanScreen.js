@@ -704,26 +704,26 @@ const styles = StyleSheet.create({
 
   // Overlay
   overlay: {
-    position: 'absolute', left: 14, right: 14, bottom: 14,
-    backgroundColor: '#fff', borderRadius: radius.lg,
-    padding: 14, ...shadow.lg,
+    position: 'absolute', left: 10, right: 10, bottom: 10,
+    backgroundColor: '#fff', borderRadius: radius.md,
+    paddingHorizontal: 12, paddingVertical: 10, ...shadow.lg,
   },
   overlayHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' },
-  overlayTitle: { fontSize: 14, fontWeight: '800', color: colors.text },
-  overlayPercent: { fontSize: 18, fontWeight: '800', color: colors.brand },
+  overlayTitle: { fontSize: 13, fontWeight: '800', color: colors.text },
+  overlayPercent: { fontSize: 16, fontWeight: '800', color: colors.brand },
   progressTrack: {
-    height: 8, backgroundColor: colors.borderLight,
-    borderRadius: 4, marginTop: 8, overflow: 'hidden',
+    height: 6, backgroundColor: colors.borderLight,
+    borderRadius: 3, marginTop: 6, overflow: 'hidden',
   },
-  progressFill: { height: 8, backgroundColor: colors.brand, borderRadius: 4 },
+  progressFill: { height: 6, backgroundColor: colors.brand, borderRadius: 3 },
   overlayStats: {
-    flexDirection: 'row', marginTop: 12,
-    backgroundColor: colors.bg, borderRadius: radius.md, padding: 10,
+    flexDirection: 'row', marginTop: 8,
+    backgroundColor: colors.bg, borderRadius: radius.sm, paddingHorizontal: 8, paddingVertical: 6,
   },
   overlayStat: { flex: 1, alignItems: 'center' },
   overlayDiv: { width: 1, backgroundColor: colors.border, marginVertical: 2 },
-  overlayStatVal: { fontSize: 16, fontWeight: '800', color: colors.text },
-  overlayStatLabel: { fontSize: 10, fontWeight: '700', color: colors.textTertiary, textTransform: 'uppercase' },
+  overlayStatVal: { fontSize: 14, fontWeight: '800', color: colors.text },
+  overlayStatLabel: { fontSize: 9, fontWeight: '700', color: colors.textTertiary, textTransform: 'uppercase' },
 
   // List view
   summaryRow: { flexDirection: 'row', gap: 8, marginBottom: 6 },
@@ -753,33 +753,33 @@ const styles = StyleSheet.create({
   stopAction: { color: colors.brand, fontWeight: '700', fontSize: 12 },
 
   // Trafik
-  trafficStack: { position: 'absolute', top: 14, left: 14, right: 14, gap: 8 },
+  trafficStack: { position: 'absolute', top: 8, left: 10, right: 10, gap: 6 },
   trafficBanner: {
     backgroundColor: 'rgba(30, 27, 75, 0.95)',
-    borderRadius: radius.md,
-    padding: 12,
+    borderRadius: radius.sm,
+    paddingHorizontal: 10, paddingVertical: 8,
     flexDirection: 'row', alignItems: 'center',
     ...shadow.lg,
   },
   incidentBanner: {
     backgroundColor: 'rgba(239, 68, 68, 0.95)',  // negative red, semi-transparent
-    borderRadius: radius.md,
-    padding: 12,
-    flexDirection: 'row', alignItems: 'flex-start', gap: 10,
+    borderRadius: radius.sm,
+    paddingHorizontal: 10, paddingVertical: 8,
+    flexDirection: 'row', alignItems: 'flex-start', gap: 8,
     ...shadow.lg,
   },
-  incidentIcon: { fontSize: 22 },
-  incidentTitle: { color: '#fff', fontSize: 13, fontWeight: '800' },
-  incidentText: { color: 'rgba(255,255,255,0.92)', fontSize: 11, fontWeight: '600', marginTop: 2, lineHeight: 15 },
-  trafficText: { color: '#fff', fontSize: 13, fontWeight: '700', flex: 1 },
-  trafficProvider: { color: 'rgba(255,255,255,0.6)', fontSize: 10, fontWeight: '600', marginTop: 2 },
+  incidentIcon: { fontSize: 18 },
+  incidentTitle: { color: '#fff', fontSize: 12, fontWeight: '800' },
+  incidentText: { color: 'rgba(255,255,255,0.92)', fontSize: 10, fontWeight: '600', marginTop: 1, lineHeight: 14 },
+  trafficText: { color: '#fff', fontSize: 12, fontWeight: '700', flex: 1 },
+  trafficProvider: { color: 'rgba(255,255,255,0.6)', fontSize: 9, fontWeight: '600', marginTop: 1 },
   trafficRefresh: {
-    width: 34, height: 34, borderRadius: 17,
+    width: 30, height: 30, borderRadius: 15,
     backgroundColor: 'rgba(255,255,255,0.18)',
     alignItems: 'center', justifyContent: 'center',
-    marginLeft: 10,
+    marginLeft: 8,
   },
-  trafficRefreshText: { color: '#fff', fontSize: 18, fontWeight: '800' },
+  trafficRefreshText: { color: '#fff', fontSize: 16, fontWeight: '800' },
   trafficCard: {
     backgroundColor: '#1e1b4b',
     borderRadius: radius.md,
@@ -800,28 +800,28 @@ const styles = StyleSheet.create({
   // Aktif adım — Harita overlay
   activeStepRow: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
-    paddingBottom: 12, marginBottom: 12,
+    paddingBottom: 8, marginBottom: 8,
     borderBottomWidth: 1, borderBottomColor: colors.borderLight,
   },
   activeStepLeft: { flex: 1, minWidth: 0 },
-  activeStepLabel: { fontSize: 9, fontWeight: '900', color: colors.brand, letterSpacing: 1, marginBottom: 2 },
-  activeStepName: { fontSize: 14, fontWeight: '800', color: colors.text },
+  activeStepLabel: { fontSize: 8, fontWeight: '900', color: colors.brand, letterSpacing: 1, marginBottom: 1 },
+  activeStepName: { fontSize: 13, fontWeight: '800', color: colors.text },
   activeStepMeta: { fontSize: 10, color: colors.textSecondary, fontWeight: '600', marginTop: 1 },
   activeNavBtn: {
     backgroundColor: colors.brand,
-    paddingHorizontal: 14, paddingVertical: 9,
+    paddingHorizontal: 12, paddingVertical: 7,
     borderRadius: radius.full,
     flexDirection: 'row', alignItems: 'center', gap: 6,
     ...shadow.sm,
   },
-  activeNavBtnIcon: { fontSize: 14 },
-  activeNavBtnText: { color: '#fff', fontWeight: '800', fontSize: 12 },
+  activeNavBtnIcon: { fontSize: 13 },
+  activeNavBtnText: { color: '#fff', fontWeight: '800', fontSize: 11 },
   activeDetailBtn: {
-    width: 38, height: 38, borderRadius: 19,
+    width: 34, height: 34, borderRadius: 17,
     backgroundColor: colors.brandLight,
     alignItems: 'center', justifyContent: 'center',
   },
-  activeDetailIcon: { color: colors.brand, fontSize: 22, fontWeight: '800' },
+  activeDetailIcon: { color: colors.brand, fontSize: 20, fontWeight: '800' },
 
   // Aktif adım — Liste view (mor banner)
   activeStepCardList: {
@@ -840,13 +840,13 @@ const styles = StyleSheet.create({
 
   // "Tümü tamam" — Harita overlay
   allDoneRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    paddingBottom: 12, marginBottom: 12,
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    paddingBottom: 8, marginBottom: 8,
     borderBottomWidth: 1, borderBottomColor: colors.borderLight,
   },
-  allDoneIcon: { fontSize: 28 },
-  allDoneTitle: { fontSize: 13, fontWeight: '800', color: colors.text },
-  allDoneText: { fontSize: 11, color: colors.textSecondary, fontWeight: '600', marginTop: 1 },
+  allDoneIcon: { fontSize: 24 },
+  allDoneTitle: { fontSize: 12, fontWeight: '800', color: colors.text },
+  allDoneText: { fontSize: 10, color: colors.textSecondary, fontWeight: '600', marginTop: 1 },
   allDoneCardList: {
     flexDirection: 'row', alignItems: 'center',
     backgroundColor: colors.positiveBg,

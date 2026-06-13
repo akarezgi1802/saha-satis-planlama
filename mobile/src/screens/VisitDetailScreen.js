@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import {
   View, Text, ScrollView, StyleSheet, TextInput, TouchableOpacity,
   StatusBar, ActivityIndicator, Alert, KeyboardAvoidingView, Platform,
-  Linking, Image,
+  Linking, Image, Modal,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Rect, Text as SvgText, Line } from 'react-native-svg';
@@ -39,6 +39,7 @@ export default function VisitDetailScreen({ route, navigation }) {
   const [aiCustStats, setAiCustStats] = useState(null);
   const [campaigns, setCampaigns] = useState([]);
   const [skipLoading, setSkipLoading] = useState(false);
+  const [skipModalOpen, setSkipModalOpen] = useState(false);
 
   // GPS Check-in state
   const [checkInStatus, setCheckInStatus] = useState(null);
@@ -99,6 +100,7 @@ export default function VisitDetailScreen({ route, navigation }) {
   };
 
   const skipVisit = async (reason) => {
+    setSkipModalOpen(false);
     setSkipLoading(true);
     try {
       await api.post('/performance/visits', {
@@ -108,11 +110,7 @@ export default function VisitDetailScreen({ route, navigation }) {
         visited: 0,
         notes: `⚠️ Atlandı: ${reason}`,
       });
-      Alert.alert(
-        'Müşteri atlandı',
-        `Sebep: ${reason}\n\nPlanım ekranında bir sonraki müşteriye otomatik geçtin.`,
-        [{ text: 'Tamam', onPress: () => navigation.goBack() }]
-      );
+      navigation.goBack();
     } catch (e) {
       Alert.alert('Hata', e.response?.data?.detail || 'Atlanamadı');
     } finally {
@@ -120,26 +118,7 @@ export default function VisitDetailScreen({ route, navigation }) {
     }
   };
 
-  const onSkipPress = () => {
-    const reasons = ['Kapalı', 'Müşteri yok', 'Ulaşılamadı', 'Sorun var'];
-    if (IS_WEB) {
-      const choice = typeof window !== 'undefined' && window.prompt(
-        'Atlama sebebi seç (1-4):\n1. Kapalı\n2. Müşteri yok\n3. Ulaşılamadı\n4. Sorun var',
-        '1'
-      );
-      const idx = parseInt(choice, 10);
-      if (idx >= 1 && idx <= 4) skipVisit(reasons[idx - 1]);
-      return;
-    }
-    Alert.alert(
-      '🚫 Bu müşteriyi atla',
-      'Sebebini seç — bu müşteri "atlandı" olarak kaydedilir, plandaki bir sonrakine geçersin:',
-      [
-        { text: 'İptal', style: 'cancel' },
-        ...reasons.map(r => ({ text: r, onPress: () => skipVisit(r) })),
-      ]
-    );
-  };
+  const onSkipPress = () => setSkipModalOpen(true);
 
   const load = useCallback(async () => {
     try {
@@ -705,6 +684,43 @@ export default function VisitDetailScreen({ route, navigation }) {
           )}
         </ScrollView>
       </KeyboardAvoidingView>
+
+      <Modal
+        visible={skipModalOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setSkipModalOpen(false)}
+      >
+        <TouchableOpacity
+          style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 20 }}
+          activeOpacity={1}
+          onPress={() => setSkipModalOpen(false)}
+        >
+          <TouchableOpacity activeOpacity={1} onPress={() => {}} style={{ backgroundColor: '#fff', borderRadius: 16, padding: 18, width: '100%', maxWidth: 360 }}>
+            <Text style={{ fontSize: 16, fontWeight: '800', color: colors.text, marginBottom: 6 }}>🚫 Bu müşteriyi atla</Text>
+            <Text style={{ fontSize: 12, color: colors.textSecondary, marginBottom: 14, lineHeight: 18 }}>
+              Sebebini seç — bu müşteri "atlandı" olarak kaydedilir, plandaki bir sonrakine geçersin.
+            </Text>
+            {['Kapalı', 'Müşteri yok', 'Ulaşılamadı', 'Sorun var'].map((r) => (
+              <TouchableOpacity
+                key={r}
+                onPress={() => skipVisit(r)}
+                disabled={skipLoading}
+                style={{ paddingVertical: 12, paddingHorizontal: 14, borderRadius: 10, backgroundColor: colors.bg, marginBottom: 8 }}
+              >
+                <Text style={{ fontSize: 14, fontWeight: '600', color: colors.text }}>{r}</Text>
+              </TouchableOpacity>
+            ))}
+            <TouchableOpacity
+              onPress={() => setSkipModalOpen(false)}
+              disabled={skipLoading}
+              style={{ paddingVertical: 10, marginTop: 4, alignItems: 'center' }}
+            >
+              <Text style={{ fontSize: 13, color: colors.textSecondary, fontWeight: '600' }}>İptal</Text>
+            </TouchableOpacity>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
     </View>
   );
 }
