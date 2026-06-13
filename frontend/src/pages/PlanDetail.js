@@ -247,11 +247,11 @@ export default function PlanDetail() {
               </div>
             )}
 
-            {tab === "map" && <MapTab results={results} selectedDay={selectedDay} setSelectedDay={setSelectedDay} depot={depot} />}
+            {tab === "map" && <MapTab results={results} selectedDay={selectedDay} setSelectedDay={setSelectedDay} depot={depot} users={users} />}
             {tab === "clusters" && <ClustersTab results={results} stList={stList} users={users} depot={depot} />}
             {tab === "charts" && <ChartsTab results={results} users={users} />}
-            {tab === "weekly" && <WeeklyTab results={results} stList={stList} />}
-            {tab === "routes" && <RoutesTab results={results} stList={stList} />}
+            {tab === "weekly" && <WeeklyTab results={results} stList={stList} users={users} />}
+            {tab === "routes" && <RoutesTab results={results} stList={stList} users={users} />}
           </>
         )}
       </div>
@@ -329,9 +329,14 @@ function PipelineProgress({ currentStep, elapsed }) {
 }
 
 /* ═══ MAP TAB ═══ */
-function MapTab({ results, selectedDay, setSelectedDay, depot }) {
+function MapTab({ results, selectedDay, setSelectedDay, depot, users = [] }) {
   const allPoints = results.clusters;
   if (allPoints.length === 0) return null;
+
+  const repMap = {};
+  users.filter((u) => u.role === "sales_rep" && u.cluster_index !== null).forEach((u) => {
+    repMap[u.cluster_index] = u;
+  });
 
   const center = [
     allPoints.reduce((s, p) => s + p.x, 0) / allPoints.length,
@@ -358,7 +363,7 @@ function MapTab({ results, selectedDay, setSelectedDay, depot }) {
               <Popup>
                 <div style={{ fontSize: 13 }}>
                   <strong>{p.customer_name}</strong><br />
-                  ST{p.cluster_index + 1} · Ciro: {Number(p.monthly_revenue).toLocaleString("tr-TR")} ₺<br />
+                  ST{p.cluster_index + 1}{repMap[p.cluster_index] ? ` — ${repMap[p.cluster_index].full_name}` : ""} · Ciro: {Number(p.monthly_revenue).toLocaleString("tr-TR")} ₺<br />
                   Ziyaret: {p.visit_frequency}x / hafta
                 </div>
               </Popup>
@@ -398,17 +403,17 @@ function ClustersTab({ results, stList, users, depot }) {
   return (
     <div>
       <div className="seg-bar" style={{ marginBottom: 16 }}>
-        <button className={`seg-item ${filterST === null ? "active" : ""}`} onClick={() => setFilterST(null)}>Tüm Kümeler</button>
+        <button className={`seg-item ${filterST === null ? "active" : ""}`} onClick={() => setFilterST(null)}>Tüm Bölgeler</button>
         {stList.map((ci) => (
-          <button key={ci} className={`seg-item ${filterST === ci ? "active" : ""}`} onClick={() => setFilterST(ci)}>
-            Küme {ci}
+          <button key={ci} className={`seg-item ${filterST === ci ? "active" : ""}`} onClick={() => setFilterST(ci)} title={repMap[ci]?.full_name || ""}>
+            Bölge {ci + 1}{repMap[ci] ? ` — ${repMap[ci].full_name}` : ""}
           </button>
         ))}
       </div>
 
       <div className="panel" style={{ marginBottom: 16 }}>
         <div className="panel-header">
-          <h3>{filterST !== null ? `Küme ${filterST} — Harita` : "Tüm Kümeler — Harita"}</h3>
+          <h3>{filterST !== null ? `Bölge ${filterST + 1}${repMap[filterST] ? ` — ${repMap[filterST].full_name}` : ""} — Harita` : "Tüm Bölgeler — Harita"}</h3>
           <span className="panel-info">{mapPoints.length} müşteri</span>
         </div>
         <div style={{ height: window.innerWidth <= 768 ? 280 : 400 }}>
@@ -419,7 +424,7 @@ function ClustersTab({ results, stList, users, depot }) {
                 <Popup>
                   <div style={{ fontSize: 13, minWidth: 160 }}>
                     <strong>{p.customer_name}</strong><br />
-                    Küme {p.cluster_index} · Ciro: {Number(p.monthly_revenue).toLocaleString("tr-TR")} ₺<br />
+                    Bölge {p.cluster_index + 1}{repMap[p.cluster_index] ? ` — ${repMap[p.cluster_index].full_name}` : ""} · Ciro: {Number(p.monthly_revenue).toLocaleString("tr-TR")} ₺<br />
                     Ziyaret: {p.visit_frequency}x / hafta
                   </div>
                 </Popup>
@@ -447,7 +452,7 @@ function ClustersTab({ results, stList, users, depot }) {
             <div className="panel-header">
               <h3 style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <span className="cluster-dot" style={{ background: color, margin: 0 }} />
-                Küme {ci} — {clusterCustomers.length} müşteri
+                Bölge {ci + 1}{rep ? ` — ${rep.full_name}` : ""} — {clusterCustomers.length} müşteri
               </h3>
               <div style={{ display: "flex", gap: 16, fontSize: 13 }}>
                 <span>Ciro: <strong>{Number(totalRev).toLocaleString("tr-TR")} ₺</strong></span>
@@ -601,21 +606,26 @@ function ChartsTab({ results, users = [] }) {
 }
 
 /* ═══ WEEKLY TAB ═══ */
-function WeeklyTab({ results, stList }) {
+function WeeklyTab({ results, stList, users = [] }) {
   const [filterST, setFilterST] = useState(stList[0] ?? 0);
+
+  const repMap = {};
+  users.filter((u) => u.role === "sales_rep" && u.cluster_index !== null).forEach((u) => {
+    repMap[u.cluster_index] = u;
+  });
 
   return (
     <div>
       <div className="seg-bar" style={{ marginBottom: 16 }}>
         {stList.map((ci) => (
-          <button key={ci} className={`seg-item ${filterST === ci ? "active" : ""}`} onClick={() => setFilterST(ci)}>
-            ST{ci + 1}
+          <button key={ci} className={`seg-item ${filterST === ci ? "active" : ""}`} onClick={() => setFilterST(ci)} title={repMap[ci]?.full_name || ""}>
+            ST{ci + 1}{repMap[ci] ? ` — ${repMap[ci].full_name}` : ""}
           </button>
         ))}
       </div>
       <div className="panel">
         <div className="panel-header">
-          <h3>Haftalık Ziyaret Planı — ST{filterST + 1}</h3>
+          <h3>Haftalık Ziyaret Planı — ST{filterST + 1}{repMap[filterST] ? ` — ${repMap[filterST].full_name}` : ""}</h3>
           <span className="panel-info">
             {results.weekly_plan.filter((w) => w.cluster_index === filterST).length} atama
           </span>
@@ -669,9 +679,15 @@ function WeeklyTab({ results, stList }) {
 
 
 /* ═══ ROUTES TAB ═══ */
-function RoutesTab({ results, stList }) {
+function RoutesTab({ results, stList, users = [] }) {
   const [filterST, setFilterST] = useState(stList[0] ?? 0);
   const [filterDay, setFilterDay] = useState(1);
+
+  const repMap = {};
+  users.filter((u) => u.role === "sales_rep" && u.cluster_index !== null).forEach((u) => {
+    repMap[u.cluster_index] = u;
+  });
+  const repLabel = (ci) => repMap[ci] ? ` — ${repMap[ci].full_name}` : "";
 
   const seen = new Set();
   const deduped = results.routes.filter((r) => {
@@ -702,12 +718,12 @@ function RoutesTab({ results, stList }) {
           <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 4 }}>Satış Temsilcisi</div>
           {isMobile ? (
             <select className="form-input" value={filterST} onChange={(e) => setFilterST(Number(e.target.value))} style={{ width: "100%" }}>
-              {stList.map((ci) => <option key={ci} value={ci}>ST{ci + 1}</option>)}
+              {stList.map((ci) => <option key={ci} value={ci}>ST{ci + 1}{repLabel(ci)}</option>)}
             </select>
           ) : (
             <div className="seg-bar">
               {stList.map((ci) => (
-                <button key={ci} className={`seg-item ${filterST === ci ? "active" : ""}`} onClick={() => setFilterST(ci)}>ST{ci + 1}</button>
+                <button key={ci} className={`seg-item ${filterST === ci ? "active" : ""}`} onClick={() => setFilterST(ci)} title={repMap[ci]?.full_name || ""}>ST{ci + 1}{repLabel(ci)}</button>
               ))}
             </div>
           )}
@@ -742,7 +758,7 @@ function RoutesTab({ results, stList }) {
                 <div className="panel-header">
                   <h3 style={{ display: "flex", alignItems: "center", gap: 8 }}>
                     <span className="cluster-dot" style={{ background: color, margin: 0 }} />
-                    ST{route.cluster_index + 1} — {route.day_name}
+                    ST{route.cluster_index + 1}{repLabel(route.cluster_index)} — {route.day_name}
                   </h3>
                   <span className="panel-info">{route.customer_count} müşteri · {route.total_distance?.toFixed(2)} km</span>
                 </div>
