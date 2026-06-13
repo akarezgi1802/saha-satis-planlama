@@ -12,6 +12,25 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     (async () => {
       try {
+        // Web (Expo Web) sürümünde URL'de ?logout=1 varsa: bir oturum varsa
+        // sıfırla — QR ile gelen kullanıcı doğrudan Login ekranını görsün.
+        // (React Native APK'da window tanımlı olmadığı için try/catch içinde.)
+        try {
+          if (typeof window !== 'undefined' && window.location && window.location.search) {
+            const params = new URLSearchParams(window.location.search);
+            if (params.get('logout') === '1') {
+              await AsyncStorage.removeItem('token');
+              await AsyncStorage.removeItem('user');
+              // URL'i parametresiz hale getir ki yenilemede tekrar tetiklenmesin
+              if (window.history && window.history.replaceState) {
+                window.history.replaceState({}, '', window.location.pathname);
+              }
+              setLoading(false);
+              return;
+            }
+          }
+        } catch (e) {}
+
         const t = await AsyncStorage.getItem('token');
         const u = await AsyncStorage.getItem('user');
         if (t && u) {
