@@ -1,28 +1,8 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { MapContainer, TileLayer, CircleMarker, Marker, Popup, Polyline } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import api from "../api";
-
-// Telefon/tarayıcı GPS konumunu alır
-function getPosition() {
-  return new Promise((resolve, reject) => {
-    if (!navigator.geolocation) {
-      reject(new Error("Tarayıcınız konum servisini desteklemiyor"));
-      return;
-    }
-    navigator.geolocation.getCurrentPosition(
-      (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-      (err) => reject(new Error(err.code === 1 ? "Konum izni reddedildi. Lütfen tarayıcı ayarlarından konuma izin verin." : "Konum alınamadı")),
-      { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }
-    );
-  });
-}
-
-function fmtTime(iso) {
-  if (!iso) return "—";
-  try { return new Date(iso).toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" }); } catch { return "—"; }
-}
 
 // estimated_arrival_minutes: günün başından (08:00 = 480 dk) toplam dakika.
 // Saat:dakika formatına çevirir. Örn: 497 -> "08:17", 540 -> "09:00"
@@ -277,59 +257,6 @@ function WeeklyPlanTab({ data }) {
 
 /* ═══ GÜNLÜK PLAN SEKMESI ═══ */
 function DailyPlanTab({ data, depot, days, selectedDay, setSelectedDay }) {
-  const TODAY_STR = new Date().toISOString().slice(0, 10);
-  const jsDay = new Date().getDay();              // 0=Paz, 1=Pzt ... 6=Cmt
-  const todayDow = jsDay === 0 ? 7 : jsDay;       // 1=Pzt ... 7=Paz
-  const isToday = selectedDay === todayDow;       // seçili gün bugün mü?
-
-  const [visitMap, setVisitMap] = useState({});   // customer_id -> visit (check_in/out)
-  const [busyId, setBusyId] = useState(null);
-
-  const loadStatuses = useCallback(() => {
-    api.get("/performance/visits", { params: { start_date: TODAY_STR, end_date: TODAY_STR } })
-      .then((r) => {
-        const m = {};
-        (Array.isArray(r.data) ? r.data : []).forEach((v) => { m[v.customer_id] = v; });
-        setVisitMap(m);
-      })
-      .catch(() => {});
-  }, [TODAY_STR]);
-
-  useEffect(() => { loadStatuses(); }, [loadStatuses]);
-
-  const handleCheckIn = async (customerId, name) => {
-    setBusyId(customerId);
-    try {
-      const { lat, lng } = await getPosition();
-      const r = await api.post("/check-in", { customer_id: customerId, lat, lng });
-      loadStatuses();
-      if (r.data.already_in) {
-        alert(`${name}: Bu müşteride zaten giriş yapılmış (${fmtTime(r.data.check_in_at)}).`);
-      } else {
-        const d = Math.round(r.data.distance_m || 0);
-        const warn = r.data.within_200m ? "" : "\n\n⚠️ Müşteriye 200m'den uzaktasınız, konumunuzu kontrol edin.";
-        alert(`✓ Giriş yapıldı: ${name}\nMüşteriye uzaklık: ${d} m${warn}`);
-      }
-    } catch (e) {
-      alert("Giriş başarısız: " + (e.response?.data?.detail || e.message));
-    }
-    setBusyId(null);
-  };
-
-  const handleCheckOut = async (customerId, name) => {
-    setBusyId(customerId);
-    try {
-      let coords = {};
-      try { coords = await getPosition(); } catch { /* çıkışta konum opsiyonel */ }
-      const r = await api.post(`/check-out/${customerId}`, { lat: coords.lat ?? null, lng: coords.lng ?? null });
-      loadStatuses();
-      alert(`✓ Çıkış yapıldı: ${name}\nZiyaret süresi: ${r.data.duration_text || "-"}`);
-    } catch (e) {
-      alert("Çıkış başarısız: " + (e.response?.data?.detail || e.message));
-    }
-    setBusyId(null);
-  };
-
   const dayCustomers = selectedDay
     ? data.weekly_plan.filter((w) => w.day_of_week === selectedDay)
     : [];
@@ -365,24 +292,6 @@ function DailyPlanTab({ data, depot, days, selectedDay, setSelectedDay }) {
             </span>
           </button>
         ))}
-      </div>
-
-      {/* Giriş/Çıkış bilgilendirmesi */}
-      <div style={{
-        display: "flex", gap: 12, padding: 14, marginBottom: 16, borderRadius: 12,
-        background: "linear-gradient(135deg, #10b98112, #3b82f612)", border: "1px solid #10b98133",
-        fontSize: 13, lineHeight: 1.55, alignItems: "flex-start",
-      }}>
-        <div style={{ fontSize: 22, lineHeight: 1 }}>📍</div>
-        <div>
-          <strong>Saha ziyaret takibi:</strong> Bir müşteriye vardığınızda <strong style={{ color: "#10b981" }}>Giriş Yap</strong>, ayrılırken <strong style={{ color: "#f59e0b" }}>Çıkış Yap</strong> butonuna basın.
-          Telefonunuzun konumu alınarak gerçek kat edilen mesafe, ziyaret süresi ve karbon emisyonu otomatik hesaplanır.
-          {!isToday && (
-            <div style={{ marginTop: 6, color: "#ef4444", fontWeight: 600 }}>
-              Giriş/çıkış yalnızca bugünün ({DAY_NAMES[todayDow] || "—"}) ziyaretleri için yapılabilir. Bugünün gününü seçin.
-            </div>
-          )}
-        </div>
       </div>
 
       <div className="grid-2">
@@ -438,7 +347,6 @@ function DailyPlanTab({ data, depot, days, selectedDay, setSelectedDay }) {
                     <th>Müşteri</th>
                     <th>Tahmini Varış</th>
                     <th>Navigasyon</th>
-                    <th>Ziyaret (Giriş/Çıkış)</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -468,36 +376,6 @@ function DailyPlanTab({ data, depot, days, selectedDay, setSelectedDay }) {
                           <a href={navUrl} target="_blank" rel="noopener noreferrer" className="btn btn-emphasized btn-xs">
                             Yol Tarifi
                           </a>
-                        </td>
-                        <td>
-                          {!isToday ? (
-                            <span style={{ fontSize: 11, color: "#94a3b8" }}>Sadece bugün</span>
-                          ) : (() => {
-                            const v = visitMap[s.customer_id];
-                            const busy = busyId === s.customer_id;
-                            if (v && v.check_in_at && v.check_out_at) {
-                              return (
-                                <span style={{ fontSize: 12, color: "#10b981", fontWeight: 600, whiteSpace: "nowrap" }}>
-                                  ✓ {fmtTime(v.check_in_at)}–{fmtTime(v.check_out_at)}
-                                </span>
-                              );
-                            }
-                            if (v && v.check_in_at) {
-                              return (
-                                <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-                                  <button className="btn btn-xs" style={{ background: "#f59e0b", color: "#fff" }} disabled={busy} onClick={() => handleCheckOut(s.customer_id, s.customer_name)}>
-                                    {busy ? "..." : "Çıkış Yap"}
-                                  </button>
-                                  <span style={{ fontSize: 10, color: "#94a3b8" }}>Giriş: {fmtTime(v.check_in_at)}</span>
-                                </div>
-                              );
-                            }
-                            return (
-                              <button className="btn btn-xs" style={{ background: "#10b981", color: "#fff" }} disabled={busy} onClick={() => handleCheckIn(s.customer_id, s.customer_name)}>
-                                {busy ? "Konum alınıyor..." : "Giriş Yap"}
-                              </button>
-                            );
-                          })()}
                         </td>
                       </tr>
                     );
