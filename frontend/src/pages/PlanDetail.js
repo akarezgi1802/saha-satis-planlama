@@ -402,11 +402,11 @@ function ClustersTab({ results, stList, users, depot }) {
 
   return (
     <div>
-      <div className="seg-bar" style={{ marginBottom: 16 }}>
+      <div className="seg-bar" style={{ marginBottom: 16, flexWrap: "wrap" }}>
         <button className={`seg-item ${filterST === null ? "active" : ""}`} onClick={() => setFilterST(null)}>Tüm Bölgeler</button>
         {stList.map((ci) => (
           <button key={ci} className={`seg-item ${filterST === ci ? "active" : ""}`} onClick={() => setFilterST(ci)} title={repMap[ci]?.full_name || ""}>
-            Bölge {ci + 1}{repMap[ci] ? ` — ${repMap[ci].full_name}` : ""}
+            Bölge {ci + 1}
           </button>
         ))}
       </div>
@@ -616,10 +616,10 @@ function WeeklyTab({ results, stList, users = [] }) {
 
   return (
     <div>
-      <div className="seg-bar" style={{ marginBottom: 16 }}>
+      <div className="seg-bar" style={{ marginBottom: 16, flexWrap: "wrap" }}>
         {stList.map((ci) => (
           <button key={ci} className={`seg-item ${filterST === ci ? "active" : ""}`} onClick={() => setFilterST(ci)} title={repMap[ci]?.full_name || ""}>
-            ST{ci + 1}{repMap[ci] ? ` — ${repMap[ci].full_name}` : ""}
+            ST{ci + 1}
           </button>
         ))}
       </div>
@@ -715,15 +715,17 @@ function RoutesTab({ results, stList, users = [] }) {
       {/* Filtreler */}
       <div style={{ display: "flex", gap: 10, marginBottom: 16, flexWrap: "wrap" }}>
         <div style={{ flex: 1, minWidth: 120 }}>
-          <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 4 }}>Satış Temsilcisi</div>
+          <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 4 }}>
+            Satış Temsilcisi{repMap[filterST] ? <span style={{ color: "var(--brand)", marginLeft: 6 }}>· {repMap[filterST].full_name}</span> : ""}
+          </div>
           {isMobile ? (
             <select className="form-input" value={filterST} onChange={(e) => setFilterST(Number(e.target.value))} style={{ width: "100%" }}>
               {stList.map((ci) => <option key={ci} value={ci}>ST{ci + 1}{repLabel(ci)}</option>)}
             </select>
           ) : (
-            <div className="seg-bar">
+            <div className="seg-bar" style={{ flexWrap: "wrap" }}>
               {stList.map((ci) => (
-                <button key={ci} className={`seg-item ${filterST === ci ? "active" : ""}`} onClick={() => setFilterST(ci)} title={repMap[ci]?.full_name || ""}>ST{ci + 1}{repLabel(ci)}</button>
+                <button key={ci} className={`seg-item ${filterST === ci ? "active" : ""}`} onClick={() => setFilterST(ci)} title={repMap[ci]?.full_name || ""}>ST{ci + 1}</button>
               ))}
             </div>
           )}
