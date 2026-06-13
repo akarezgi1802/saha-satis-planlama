@@ -304,20 +304,14 @@ export default function DashboardScreen({ navigation }) {
               </>
             ) : null}
 
-            {/* Hızlı erişim — Müşteriler + Görevler */}
-            <View style={{ flexDirection: 'row', gap: 10, marginTop: spacing.md }}>
+            {/* Hızlı erişim — Geçmiş Ziyaretlerim (Müşteriler & Görevler zaten alt navigasyonda) */}
+            <View style={{ marginTop: spacing.md }}>
               <TouchableLink
-                icon="👥"
-                title="Müşteriler"
-                subtitle="Bölgemdekiler"
-                onPress={() => navigation.navigate('Customers')}
-              />
-              <TouchableLink
-                icon="📝"
-                title="Görevlerim"
-                subtitle="Yapılacaklar"
-                onPress={() => navigation.navigate('Tasks')}
-                accent={colors.accent}
+                icon="📜"
+                title="Geçmiş Ziyaretlerim"
+                subtitle="Son ziyaret ve satış kayıtların gün gün"
+                onPress={() => navigation.navigate('History')}
+                accent={colors.brandPurple}
               />
             </View>
 

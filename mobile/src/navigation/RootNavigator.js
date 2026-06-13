@@ -18,6 +18,7 @@ import ProfileScreen from '../screens/ProfileScreen';
 import AIAssistantScreen from '../screens/AIAssistantScreen';
 import TasksScreen from '../screens/TasksScreen';
 import PerformanceScreen from '../screens/PerformanceScreen';
+import HistoryScreen from '../screens/HistoryScreen';
 import TabIcon from './TabIcon';
 
 const RootStack = createNativeStackNavigator();
@@ -79,6 +80,7 @@ function AppNavigator() {
       <AppStack.Screen name="Notifications" component={NotificationsScreen} options={{ animation: 'slide_from_right', presentation: 'card' }} />
       <AppStack.Screen name="AIAssistant" component={AIAssistantScreen} options={{ animation: 'slide_from_right', presentation: 'card' }} />
       <AppStack.Screen name="Profile" component={ProfileScreen} options={{ animation: 'slide_from_right', presentation: 'card' }} />
+      <AppStack.Screen name="History" component={HistoryScreen} options={{ animation: 'slide_from_right', presentation: 'card' }} />
     </AppStack.Navigator>
   );
 }
