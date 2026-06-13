@@ -3,7 +3,7 @@
  * react-native-maps web'de yok; bu component sadece web build'de yüklenir.
  * Metro bundler `.web.js` uzantısını otomatik seçer.
  */
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, TouchableOpacity, ActivityIndicator, StyleSheet } from 'react-native';
 import { MapContainer, TileLayer, Marker, Polyline, Tooltip, useMap } from 'react-leaflet';
 import L from 'leaflet';
@@ -42,6 +42,11 @@ export default function LeafletPlanMap({
   activeStop, onActiveDirections,
   onStopPress,
 }) {
+  // Bottom overlay collapsed = sadece aktif adım + butonlar (kompakt)
+  // expanded = + progress bar + 3 stat (geniş)
+  // Trafik banner: tek satır kompakt pill (collapsed) / detay (expanded)
+  const [overlayOpen, setOverlayOpen] = useState(false);
+  const [trafficOpen, setTrafficOpen] = useState(false);
   // Map bounds için tüm koordinatlar
   const bounds = React.useMemo(() => {
     const pts = [];
@@ -102,31 +107,41 @@ export default function LeafletPlanMap({
         </MapContainer>
       </View>
 
-      {/* Trafik bilgisi + Olay uyarısı */}
+      {/* Trafik pill — kompakt, tıklayınca açılır */}
       {liveRoute ? (
         <View style={styles.trafficStack}>
-          <View style={styles.trafficBanner}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.trafficText}>{liveRoute.summary_text}</Text>
-              <Text style={styles.trafficProvider}>
-                {liveRoute.provider === 'tomtom'
-                  ? '⚡ TomTom · canlı trafik'
-                  : '📐 Tahmini (TomTom key ekleyince canlı olur)'}
-                {liveRoute.remaining_count != null && liveRoute.handled_count > 0
-                  ? ` · ${liveRoute.remaining_count} müşteri kaldı`
-                  : ''}
-              </Text>
-            </View>
-            <TouchableOpacity
-              onPress={onRefreshLive}
-              disabled={liveLoading}
-              style={styles.trafficRefresh}
-            >
-              {liveLoading
-                ? <ActivityIndicator size="small" color="#fff" />
-                : <Text style={styles.trafficRefreshText}>↻</Text>}
-            </TouchableOpacity>
-          </View>
+          <TouchableOpacity
+            onPress={() => setTrafficOpen(!trafficOpen)}
+            activeOpacity={0.85}
+            style={trafficOpen ? styles.trafficBanner : styles.trafficPill}
+          >
+            {trafficOpen ? (
+              <>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.trafficText}>{liveRoute.summary_text}</Text>
+                  <Text style={styles.trafficProvider}>
+                    {liveRoute.provider === 'tomtom' ? '⚡ Canlı trafik' : '📐 Tahmini süre'}
+                    {liveRoute.remaining_count != null && liveRoute.handled_count > 0
+                      ? ` · ${liveRoute.remaining_count} müşteri kaldı`
+                      : ''}
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  onPress={(e) => { e.stopPropagation && e.stopPropagation(); onRefreshLive && onRefreshLive(); }}
+                  disabled={liveLoading}
+                  style={styles.trafficRefresh}
+                >
+                  {liveLoading ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.trafficRefreshText}>↻</Text>}
+                </TouchableOpacity>
+              </>
+            ) : (
+              <>
+                <Text style={styles.trafficPillIcon}>{liveRoute.provider === 'tomtom' ? '⚡' : '📐'}</Text>
+                <Text style={styles.trafficPillText} numberOfLines={1}>{liveRoute.summary_text}</Text>
+                <Text style={styles.trafficPillChevron}>▾</Text>
+              </>
+            )}
+          </TouchableOpacity>
           {liveRoute.incidents?.length ? (
             <View style={styles.incidentBanner}>
               <Text style={styles.incidentIcon}>{liveRoute.incidents[0].icon || '⚠️'}</Text>
@@ -144,30 +159,36 @@ export default function LeafletPlanMap({
           ) : null}
         </View>
       ) : liveLoading ? (
-        <View style={styles.trafficBanner}>
-          <ActivityIndicator size="small" color="#fff" />
-          <Text style={[styles.trafficText, { marginLeft: 8 }]}>Trafik yükleniyor…</Text>
+        <View style={styles.trafficStack}>
+          <View style={styles.trafficPill}>
+            <ActivityIndicator size="small" color="#fff" />
+            <Text style={[styles.trafficPillText, { marginLeft: 8 }]}>Trafik yükleniyor…</Text>
+          </View>
         </View>
       ) : null}
 
-      {/* Bottom overlay: aktif adım + progress */}
+      {/* Bottom overlay: aktif adım kompakt; chevron ile progress + stats açılır */}
       <View style={styles.overlay}>
         {activeStop ? (
           <View style={styles.activeStepRow}>
             <View style={styles.activeStepLeft}>
-              <Text style={styles.activeStepLabel}>SIRADAKI ADIM</Text>
+              <Text style={styles.activeStepLabel}>SIRADAKI · {visitedCount}/{stops.length}</Text>
               <Text style={styles.activeStepName} numberOfLines={1}>
                 {activeStop.visit_order}. {activeStop.customer_name}
               </Text>
               <Text style={styles.activeStepMeta}>
-                Tahmini varış: {fmtMin(activeStop.estimated_arrival_minutes)}
+                Varış {fmtMin(activeStop.estimated_arrival_minutes)}
+                {totalDistance ? ` · ${Number(totalDistance).toFixed(1)} km` : ''}
               </Text>
             </View>
             <TouchableOpacity style={styles.activeNavBtn} onPress={onActiveDirections} activeOpacity={0.85}>
-              <Text style={styles.activeNavBtnText}>🧭 Yol Tarifi</Text>
+              <Text style={styles.activeNavBtnText}>🧭</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.activeDetailBtn} onPress={() => onStopPress(activeStop)} activeOpacity={0.85}>
               <Text style={styles.activeDetailIcon}>→</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.overlayChevronBtn} onPress={() => setOverlayOpen(!overlayOpen)} activeOpacity={0.7}>
+              <Text style={styles.overlayChevron}>{overlayOpen ? '▾' : '▴'}</Text>
             </TouchableOpacity>
           </View>
         ) : (
@@ -177,32 +198,39 @@ export default function LeafletPlanMap({
               <Text style={styles.allDoneTitle}>Bugün için tüm ziyaretler tamamlandı</Text>
               <Text style={styles.allDoneText}>Depoya dönebilirsin · {visitedCount}/{stops.length} ziyaret</Text>
             </View>
+            <TouchableOpacity style={styles.overlayChevronBtn} onPress={() => setOverlayOpen(!overlayOpen)} activeOpacity={0.7}>
+              <Text style={styles.overlayChevron}>{overlayOpen ? '▾' : '▴'}</Text>
+            </TouchableOpacity>
           </View>
         )}
 
-        <View style={styles.progressTrack}>
-          <View style={[styles.progressFill, { width: `${progressPercent}%` }]} />
-        </View>
-        <View style={styles.overlayStats}>
-          <View style={styles.overlayStat}>
-            <Text style={styles.overlayStatVal}>{visitedCount}/{stops.length}</Text>
-            <Text style={styles.overlayStatLabel}>ziyaret</Text>
-          </View>
-          <View style={styles.overlayDiv} />
-          <View style={styles.overlayStat}>
-            <Text style={styles.overlayStatVal}>{totalDistance ? Number(totalDistance).toFixed(1) : '—'}</Text>
-            <Text style={styles.overlayStatLabel}>km</Text>
-          </View>
-          <View style={styles.overlayDiv} />
-          <View style={styles.overlayStat}>
-            <Text style={styles.overlayStatVal}>
-              {liveRoute?.traffic_time_min
-                ? `${Math.floor(liveRoute.traffic_time_min / 60)}:${String(liveRoute.traffic_time_min % 60).padStart(2, '0')}`
-                : totalTime ? `${(totalTime / 60).toFixed(1)}` : '—'}
-            </Text>
-            <Text style={styles.overlayStatLabel}>{liveRoute ? 'sa:dk' : 'sa'}</Text>
-          </View>
-        </View>
+        {overlayOpen ? (
+          <>
+            <View style={styles.progressTrack}>
+              <View style={[styles.progressFill, { width: `${progressPercent}%` }]} />
+            </View>
+            <View style={styles.overlayStats}>
+              <View style={styles.overlayStat}>
+                <Text style={styles.overlayStatVal}>{visitedCount}/{stops.length}</Text>
+                <Text style={styles.overlayStatLabel}>ziyaret</Text>
+              </View>
+              <View style={styles.overlayDiv} />
+              <View style={styles.overlayStat}>
+                <Text style={styles.overlayStatVal}>{totalDistance ? Number(totalDistance).toFixed(1) : '—'}</Text>
+                <Text style={styles.overlayStatLabel}>km</Text>
+              </View>
+              <View style={styles.overlayDiv} />
+              <View style={styles.overlayStat}>
+                <Text style={styles.overlayStatVal}>
+                  {liveRoute?.traffic_time_min
+                    ? `${Math.floor(liveRoute.traffic_time_min / 60)}:${String(liveRoute.traffic_time_min % 60).padStart(2, '0')}`
+                    : totalTime ? `${(totalTime / 60).toFixed(1)}` : '—'}
+                </Text>
+                <Text style={styles.overlayStatLabel}>{liveRoute ? 'sa:dk' : 'sa'}</Text>
+              </View>
+            </View>
+          </>
+        ) : null}
       </View>
     </View>
   );
@@ -221,85 +249,96 @@ function fmtMin(m) {
 }
 
 const styles = StyleSheet.create({
+  trafficStack: { position: 'absolute', top: 8, left: 10, right: 10, gap: 6, zIndex: 500 },
+  trafficPill: {
+    alignSelf: 'flex-start',
+    backgroundColor: 'rgba(30, 27, 75, 0.95)',
+    borderRadius: radius.full,
+    paddingHorizontal: 12, paddingVertical: 6,
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    maxWidth: '100%',
+    ...shadow.md,
+  },
+  trafficPillIcon: { fontSize: 12 },
+  trafficPillText: { color: '#fff', fontSize: 12, fontWeight: '700' },
+  trafficPillChevron: { color: 'rgba(255,255,255,0.6)', fontSize: 11, marginLeft: 2 },
   trafficBanner: {
     backgroundColor: 'rgba(30, 27, 75, 0.95)',
-    borderRadius: radius.md,
-    padding: 12,
+    borderRadius: radius.sm,
+    paddingHorizontal: 10, paddingVertical: 8,
     flexDirection: 'row', alignItems: 'center',
-    ...shadow.lg,
+    ...shadow.md,
   },
-  trafficText: { color: '#fff', fontSize: 13, fontWeight: '700', flex: 1 },
-  trafficProvider: { color: 'rgba(255,255,255,0.6)', fontSize: 10, fontWeight: '600', marginTop: 2 },
+  trafficText: { color: '#fff', fontSize: 12, fontWeight: '700', flex: 1 },
+  trafficProvider: { color: 'rgba(255,255,255,0.6)', fontSize: 10, fontWeight: '600', marginTop: 1 },
   trafficRefresh: {
-    width: 34, height: 34, borderRadius: 17,
+    width: 30, height: 30, borderRadius: 15,
     backgroundColor: 'rgba(255,255,255,0.18)',
     alignItems: 'center', justifyContent: 'center',
-    marginLeft: 10,
+    marginLeft: 8,
   },
-  trafficRefreshText: { color: '#fff', fontSize: 18, fontWeight: '800' },
+  trafficRefreshText: { color: '#fff', fontSize: 16, fontWeight: '800' },
   overlay: {
-    position: 'absolute', left: 14, right: 14, bottom: 14,
-    backgroundColor: '#fff', borderRadius: radius.lg,
-    padding: 14,
+    position: 'absolute', left: 10, right: 10, bottom: 10,
+    backgroundColor: '#fff', borderRadius: radius.md,
+    paddingHorizontal: 12, paddingVertical: 8,
     zIndex: 500,
     ...shadow.lg,
   },
-  overlayHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' },
-  overlayTitle: { fontSize: 14, fontWeight: '800', color: colors.text },
-  overlayPercent: { fontSize: 18, fontWeight: '800', color: colors.brand },
   progressTrack: {
-    height: 8, backgroundColor: colors.borderLight,
-    borderRadius: 4, marginTop: 8, overflow: 'hidden',
+    height: 5, backgroundColor: colors.borderLight,
+    borderRadius: 3, marginTop: 6, overflow: 'hidden',
   },
-  progressFill: { height: 8, backgroundColor: colors.brand, borderRadius: 4 },
+  progressFill: { height: 5, backgroundColor: colors.brand, borderRadius: 3 },
   overlayStats: {
-    flexDirection: 'row', marginTop: 12,
-    backgroundColor: colors.bg, borderRadius: radius.md, padding: 10,
+    flexDirection: 'row', marginTop: 6,
+    backgroundColor: colors.bg, borderRadius: radius.sm, paddingHorizontal: 8, paddingVertical: 5,
   },
   overlayStat: { flex: 1, alignItems: 'center' },
   overlayDiv: { width: 1, backgroundColor: colors.border, marginVertical: 2 },
-  overlayStatVal: { fontSize: 16, fontWeight: '800', color: colors.text },
-  overlayStatLabel: { fontSize: 10, fontWeight: '700', color: colors.textTertiary, textTransform: 'uppercase' },
+  overlayStatVal: { fontSize: 13, fontWeight: '800', color: colors.text },
+  overlayStatLabel: { fontSize: 9, fontWeight: '700', color: colors.textTertiary, textTransform: 'uppercase' },
+  overlayChevronBtn: {
+    width: 26, height: 26, borderRadius: 13,
+    backgroundColor: colors.bg,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  overlayChevron: { color: colors.textSecondary, fontSize: 11, fontWeight: '800' },
 
   activeStepRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    paddingBottom: 12, marginBottom: 12,
-    borderBottomWidth: 1, borderBottomColor: colors.borderLight,
+    flexDirection: 'row', alignItems: 'center', gap: 6,
   },
   activeStepLeft: { flex: 1, minWidth: 0 },
-  activeStepLabel: { fontSize: 9, fontWeight: '900', color: colors.brand, letterSpacing: 1, marginBottom: 2 },
-  activeStepName: { fontSize: 14, fontWeight: '800', color: colors.text },
+  activeStepLabel: { fontSize: 8, fontWeight: '900', color: colors.brand, letterSpacing: 1 },
+  activeStepName: { fontSize: 13, fontWeight: '800', color: colors.text, marginTop: 1 },
   activeStepMeta: { fontSize: 10, color: colors.textSecondary, fontWeight: '600', marginTop: 1 },
   activeNavBtn: {
     backgroundColor: colors.brand,
-    paddingHorizontal: 14, paddingVertical: 9,
-    borderRadius: radius.full,
+    width: 36, height: 36, borderRadius: 18,
+    alignItems: 'center', justifyContent: 'center',
     ...shadow.sm,
   },
-  activeNavBtnText: { color: '#fff', fontWeight: '800', fontSize: 12 },
+  activeNavBtnText: { color: '#fff', fontWeight: '800', fontSize: 14 },
   activeDetailBtn: {
-    width: 38, height: 38, borderRadius: 19,
+    width: 32, height: 32, borderRadius: 16,
     backgroundColor: colors.brandLight,
     alignItems: 'center', justifyContent: 'center',
   },
-  activeDetailIcon: { color: colors.brand, fontSize: 22, fontWeight: '800' },
+  activeDetailIcon: { color: colors.brand, fontSize: 18, fontWeight: '800' },
   allDoneRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    paddingBottom: 12, marginBottom: 12,
-    borderBottomWidth: 1, borderBottomColor: colors.borderLight,
+    flexDirection: 'row', alignItems: 'center', gap: 10,
   },
-  allDoneIcon: { fontSize: 28 },
-  allDoneTitle: { fontSize: 13, fontWeight: '800', color: colors.text },
-  allDoneText: { fontSize: 11, color: colors.textSecondary, fontWeight: '600', marginTop: 1 },
-  trafficStack: { position: 'absolute', top: 14, left: 14, right: 14, gap: 8, zIndex: 500 },
+  allDoneIcon: { fontSize: 22 },
+  allDoneTitle: { fontSize: 12, fontWeight: '800', color: colors.text },
+  allDoneText: { fontSize: 10, color: colors.textSecondary, fontWeight: '600', marginTop: 1 },
   incidentBanner: {
     backgroundColor: 'rgba(239, 68, 68, 0.95)',
-    borderRadius: radius.md,
-    padding: 12,
-    flexDirection: 'row', alignItems: 'flex-start', gap: 10,
-    ...shadow.lg,
+    borderRadius: radius.sm,
+    paddingHorizontal: 10, paddingVertical: 8,
+    flexDirection: 'row', alignItems: 'flex-start', gap: 8,
+    ...shadow.md,
   },
-  incidentIcon: { fontSize: 22 },
-  incidentTitle: { color: '#fff', fontSize: 13, fontWeight: '800' },
-  incidentText: { color: 'rgba(255,255,255,0.92)', fontSize: 11, fontWeight: '600', marginTop: 2, lineHeight: 15 },
+  incidentIcon: { fontSize: 18 },
+  incidentTitle: { color: '#fff', fontSize: 12, fontWeight: '800' },
+  incidentText: { color: 'rgba(255,255,255,0.92)', fontSize: 10, fontWeight: '600', marginTop: 1, lineHeight: 14 },
 });

@@ -207,33 +207,29 @@ export default function MyPlanScreen({ navigation }) {
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
       <StatusBar barStyle="light-content" />
-      <LinearGradient colors={brandGradient} style={[styles.hero, { paddingTop: insets.top + 14 }]}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
+      <LinearGradient colors={brandGradient} style={[styles.hero, { paddingTop: insets.top + 8 }]}>
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
           <View style={{ flex: 1 }}>
-            <Text style={styles.heroTitle}>Bugünün Rotası</Text>
-            <Text style={styles.heroSub}>
+            <Text style={styles.heroTitle} numberOfLines={1}>Bugünün Rotası</Text>
+            <Text style={styles.heroSub} numberOfLines={1}>
               {latestPlan ? latestPlan.name : 'Plan yok'} · Bölge {user?.cluster_index != null ? `#${user.cluster_index}` : '—'}
             </Text>
           </View>
-          <HeaderActions />
-        </View>
-
-        {/* View toggle */}
-        <View style={{ flexDirection: 'row', justifyContent: 'flex-end' }}>
-          <View style={styles.toggle}>
+          <View style={styles.toggleInline}>
             <TouchableOpacity
               onPress={() => setView('map')}
               style={[styles.toggleBtn, view === 'map' && styles.toggleBtnActive]}
             >
-              <Text style={[styles.toggleText, view === 'map' && styles.toggleTextActive]}>🗺️ Harita</Text>
+              <Text style={[styles.toggleText, view === 'map' && styles.toggleTextActive]}>🗺️</Text>
             </TouchableOpacity>
             <TouchableOpacity
               onPress={() => setView('list')}
               style={[styles.toggleBtn, view === 'list' && styles.toggleBtnActive]}
             >
-              <Text style={[styles.toggleText, view === 'list' && styles.toggleTextActive]}>☰ Liste</Text>
+              <Text style={[styles.toggleText, view === 'list' && styles.toggleTextActive]}>☰</Text>
             </TouchableOpacity>
           </View>
+          <HeaderActions />
         </View>
       </LinearGradient>
 
@@ -650,25 +646,25 @@ function fmtMin(m) {
 }
 
 const styles = StyleSheet.create({
-  hero: { paddingHorizontal: 16, paddingBottom: 14 },
-  heroTitle: { color: '#fff', fontSize: 20, fontWeight: '800' },
-  heroSub: { color: 'rgba(255,255,255,0.85)', fontSize: 12, marginTop: 4, fontWeight: '600' },
-  toggle: {
+  hero: { paddingHorizontal: 14, paddingBottom: 8 },
+  heroTitle: { color: '#fff', fontSize: 17, fontWeight: '800' },
+  heroSub: { color: 'rgba(255,255,255,0.85)', fontSize: 11, marginTop: 2, fontWeight: '600' },
+  toggleInline: {
     flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.15)',
-    borderRadius: radius.full, padding: 3, gap: 2,
+    borderRadius: radius.full, padding: 2, gap: 2, marginRight: 8,
   },
-  toggleBtn: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: radius.full },
+  toggleBtn: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: radius.full },
   toggleBtnActive: { backgroundColor: '#fff' },
-  toggleText: { fontSize: 16 },
+  toggleText: { fontSize: 14 },
   toggleTextActive: { },
   daysBar: {
     backgroundColor: colors.surface,
     borderBottomWidth: 1, borderBottomColor: colors.border,
-    paddingVertical: 10,
+    paddingVertical: 6,
   },
   dayPill: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    paddingHorizontal: 14, paddingVertical: 8,
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    paddingHorizontal: 12, paddingVertical: 5,
     borderRadius: radius.full,
     backgroundColor: colors.bg,
     borderWidth: 1, borderColor: colors.border,
