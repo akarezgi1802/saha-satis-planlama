@@ -85,14 +85,14 @@ export default function Login({ onLogin }) {
               📱 Mobil Uygulama
             </div>
             <a
-              href="https://saha-satis-planlama-guncel.onrender.com"
+              href="https://saha-satis-mobile-web.onrender.com"
               target="_blank"
               rel="noopener noreferrer"
               style={{ display: "inline-block", borderRadius: 10, overflow: "hidden", lineHeight: 0, background: "#fff", padding: 8 }}
               title="Mobil kurulum sayfasını aç"
             >
               <img
-                src="https://api.qrserver.com/v1/create-qr-code/?size=180x180&margin=0&data=https%3A%2F%2Fsaha-satis-planlama-guncel.onrender.com"
+                src="https://api.qrserver.com/v1/create-qr-code/?size=180x180&margin=0&data=https%3A%2F%2Fsaha-satis-mobile-web.onrender.com"
                 alt="Mobil uygulama QR kodu"
                 style={{ width: 140, height: 140, display: "block" }}
               />
@@ -104,7 +104,7 @@ export default function Login({ onLogin }) {
               lineHeight: 1.45
             }}>
               Telefon kamerası ile okut<br/>
-              veya <a href="https://saha-satis-planlama-guncel.onrender.com" target="_blank" rel="noopener noreferrer" style={{ color: "#6366f1", fontWeight: 600 }}>kurulum sayfasını</a> aç
+              veya <a href="https://saha-satis-mobile-web.onrender.com" target="_blank" rel="noopener noreferrer" style={{ color: "#6366f1", fontWeight: 600 }}>mobil uygulamayı</a> aç
             </p>
           </div>
         </div>
