@@ -430,8 +430,8 @@ function MapPlanView({ stops, depot, region, polylineCoords, isVisited, progress
               <Text style={styles.trafficText}>{liveRoute.summary_text}</Text>
               <Text style={styles.trafficProvider}>
                 {liveRoute.provider === 'tomtom'
-                  ? '⚡ TomTom · canlı trafik'
-                  : '📐 Tahmini (TomTom key ekleyince canlı olur)'}
+                  ? '⚡ Canlı trafik'
+                  : '📐 Tahmini süre'}
                 {liveRoute.remaining_count != null && liveRoute.handled_count > 0
                   ? ` · ${liveRoute.remaining_count} müşteri kaldı`
                   : ''}

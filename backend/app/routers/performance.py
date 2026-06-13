@@ -380,6 +380,10 @@ def check_out(
     if body and body.lat is not None and body.lng is not None:
         visit.check_out_lat = body.lat
         visit.check_out_lng = body.lng
+    # Check-out yapıldıysa ziyaret tamamlanmış sayılır — visited=1.
+    # Aksi halde "Bugünün Hedefi" / Performans sayaçları (visited==1 filtresi
+    # kullanan today-target ve summary) güncellenmez.
+    visit.visited = 1
     duration_sec = (visit.check_out_at - visit.check_in_at).total_seconds()
     db.commit()
 
