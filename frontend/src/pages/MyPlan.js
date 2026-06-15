@@ -413,7 +413,9 @@ function DailyPlanTab({ data, depot, days, selectedDay, setSelectedDay }) {
           {dayRoute && (
             <div style={{ padding: "12px 16px", borderTop: "1px solid var(--border)", display: "flex", gap: 20, fontSize: 13, color: "#64748b" }}>
               <span>Mesafe: <strong style={{ color: "#1e293b" }}>{dayRoute.total_distance?.toFixed(1) || "—"} km</strong></span>
-              <span>Yol süresi: <strong style={{ color: "#1e293b" }}>{fmtDuration(dayRoute.total_time_minutes)}</strong></span>
+              <span title="Yol + her müşteride geçen servis süresi dahil (depo dönüşü hariç)">
+                Tahmini mesai: <strong style={{ color: "#1e293b" }}>{fmtDuration(dayRoute.total_time_minutes)}</strong>
+              </span>
               <span>Müşteri: <strong style={{ color: "#1e293b" }}>{dayRoute.customer_count}</strong></span>
             </div>
           )}

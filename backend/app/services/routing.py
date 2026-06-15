@@ -455,10 +455,10 @@ def solve_route(
                 arrival_map[custs[j - 1]] = current_time
 
         # Tutarlılık: total_time'ı arrival_map'ten türet — bkz. MILP yolundaki not.
-        # NN'de aslında tutarlı olmalı ama tek formül kullanmak audit'i kolaylaştırır.
+        # MESAİ süresi (yol + servis): depodan çıkış → son müşteriye varış.
         if arrival_map:
             last_arr = max(arrival_map.values())
-            consistent_time = last_arr - 480 - (len(arrival_map) - 1) * DEFAULT_SERVICE_TIME
+            consistent_time = last_arr - 480  # yol + (n-1)*servis dahil
         else:
             consistent_time = nn_time
         return {
@@ -493,17 +493,19 @@ def solve_route(
                                     depot_x, depot_y)
 
     # ─── total_time: tek doğruluk kaynağı = y[j] zinciri ──────────────
-    # MILP'in objective değeri ile arrival_times'tan türetilen yol süresi
+    # MILP'in objective değeri ile arrival_times'tan türetilen toplam süre
     # arasında 3 kata kadar uyumsuzluk gözlemlendi (Plan 11 Salı ST=2:
-    # objective=44.89 dk, y-zinciri yol=120 dk). y-zinciri kullanıcının
+    # objective=44.89 dk, y-zinciri=225 dk). y-zinciri kullanıcının
     # gördüğü saatlerle birebir tutarlı olduğu için tek kaynak o.
     # solve_tdvrp içindeki audit log mismatch görünce kanıt basacak.
+    #
+    # "total_time" artık MESAİ süresi: depo çıkış → son müşteri varış
+    # (yol + servis süreleri DAHİL). Çünkü bir sonraki noktaya varışı
+    # önceki noktadaki servis zamanı doğrudan etkiliyor; saf yol süresi
+    # ST'nin operasyonel bakışına uymuyor.
     if arrival_map:
         last_arr = max(arrival_map.values())
-        # arrival[son] - 480 = depo'dan ayrılış → son müşteriye varışa kadar
-        # geçen toplam dk (servis + yol dahil, son müşteriden depoya dönüş hariç).
-        # Sadece yol süresini istiyoruz → (n-1) servisi çıkar.
-        consistent_time = last_arr - 480 - (len(arrival_map) - 1) * DEFAULT_SERVICE_TIME
+        consistent_time = last_arr - 480  # yol + (n-1)*servis dahil
     else:
         consistent_time = result["objective"]
 
