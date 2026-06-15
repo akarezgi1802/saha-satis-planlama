@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import {
   View, Text, TextInput, StyleSheet, KeyboardAvoidingView, Platform,
-  TouchableOpacity, ScrollView, StatusBar,
+  TouchableOpacity, ScrollView, StatusBar, Linking, Image,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Path, Circle, Defs, LinearGradient as SvgLinearGradient, Stop } from 'react-native-svg';
@@ -159,15 +159,18 @@ export default function LoginScreen({ navigation }) {
 }
 
 // Mobil web sürümünde (Expo Web) login ekranının altında gösterilen
-// "Ana Ekrana Ekle" kartı. Native APK'da hiç render edilmez, ana ekrana
-// zaten kurulu PWA olarak çalışan kullanıcılara da görünmez (standalone
-// kontrolü). Cihazı sniff edip iOS Safari mi Android Chrome mu olduğuna
-// göre talimatı şekillendirir.
+// kurulum yönergeleri. Backend'in /install sayfasındaki orijinal kart
+// düzenini birebir reproduce eder: Hemen Kur · QR · Android Adımları ·
+// iPhone Adımları. Native APK'da render edilmez; standalone (PWA olarak
+// kurulmuş) modda da görünmez.
+const EAS_BUILD_URL = 'https://expo.dev/accounts/tugceeeeeeee/projects/saha-satis-mobile/builds';
+const MOBILE_WEB_URL = 'https://saha-satis-mobile-web.onrender.com';
+const INSTALL_PAGE_URL = 'https://saha-satis-planlama-guncel.onrender.com/install';
+
 function InstallHint() {
   const platform = useMemo(() => {
     if (!IS_WEB) return null;
     try {
-      // PWA olarak ana ekrandan açılmışsa hiç gösterme
       const standalone =
         (typeof window !== 'undefined' && window.matchMedia
           && window.matchMedia('(display-mode: standalone)').matches)
@@ -183,42 +186,164 @@ function InstallHint() {
   }, []);
   if (!platform) return null;
 
+  const open = (url) => { Linking.openURL(url).catch(() => {}); };
+
+  const qrSrc = `https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(INSTALL_PAGE_URL)}&color=1e1b4b&bgcolor=ffffff`;
+
+  let primaryBtn, secondaryBtn, primaryNote;
+  if (platform === 'android') {
+    primaryBtn = { label: '📲 Android APK İndir (önerilen)', url: EAS_BUILD_URL };
+    secondaryBtn = { label: '🌐 Veya tarayıcıda aç', url: MOBILE_WEB_URL };
+    primaryNote = "APK için: tıkla, telefona iner, Android'in 'bilinmeyen kaynak' uyarısını onayla. Hızlı bakmak için tarayıcı versiyonu da çalışır.";
+  } else if (platform === 'ios') {
+    primaryBtn = { label: "🌐 Safari'de Aç (önerilen)", url: MOBILE_WEB_URL };
+    secondaryBtn = { label: '📲 Sonra "Ana Ekrana Ekle"', url: MOBILE_WEB_URL };
+    primaryNote = "iPhone için: tıkla → Safari'de açılır → paylaş menüsünden 'Ana Ekrana Ekle' ile bir simge oluştur. App gibi çalışır, kurulum gerekmez.";
+  } else {
+    primaryBtn = { label: '📲 Android APK', url: EAS_BUILD_URL };
+    secondaryBtn = { label: '🌐 Tarayıcıda Aç', url: MOBILE_WEB_URL };
+    primaryNote = "Android için APK'yı indir. iPhone veya bilgisayar için tarayıcı versiyonunu kullan.";
+  }
+
   return (
-    <View style={styles.installCard}>
-      <View style={styles.installHeader}>
-        <Text style={styles.installEmoji}>📱</Text>
-        <Text style={styles.installTitle}>Ana Ekrana Ekle</Text>
+    <View style={{ marginTop: 8 }}>
+      {/* Ana CTA — "Hemen Kur" */}
+      <View style={iStyles.card}>
+        <View style={iStyles.cardHeader}>
+          <View style={iStyles.cardIcon}><Text style={iStyles.cardIconText}>📲</Text></View>
+          <Text style={iStyles.cardTitle}>Hemen Kur</Text>
+        </View>
+        <TouchableOpacity style={iStyles.btnPrimary} activeOpacity={0.88} onPress={() => open(primaryBtn.url)}>
+          <Text style={iStyles.btnPrimaryText}>{primaryBtn.label}</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={iStyles.btnSecondary} activeOpacity={0.88} onPress={() => open(secondaryBtn.url)}>
+          <Text style={iStyles.btnSecondaryText}>{secondaryBtn.label}</Text>
+        </TouchableOpacity>
+        <Text style={iStyles.note}>{primaryNote}</Text>
       </View>
-      {platform === 'ios' ? (
-        <>
-          <Text style={styles.installText}>
-            Safari'nin alt çubuğundaki paylaş <Text style={styles.installInline}>↑</Text> simgesine dokun, açılan
-            menüden <Text style={styles.installStrong}>"Ana Ekrana Ekle"</Text> seç.
-          </Text>
-          <Text style={styles.installText}>
-            Ana ekranda ayrı bir simge oluşur — uygulama gibi tam ekran açılır, tarayıcı çubukları görünmez.
-          </Text>
-        </>
-      ) : platform === 'android' ? (
-        <>
-          <Text style={styles.installText}>
-            Chrome'un sağ üstündeki menü <Text style={styles.installInline}>⋮</Text> simgesine dokun, açılan listeden
-            <Text style={styles.installStrong}> "Ana ekrana ekle" </Text> seç.
-          </Text>
-          <Text style={styles.installText}>
-            Telefonun ana ekranında uygulama simgesi belirir, kurulum gerekmez.
-          </Text>
-        </>
-      ) : (
-        <Text style={styles.installText}>
-          Sayfayı telefonundan açtığında Safari (iPhone) veya Chrome (Android) paylaş/menü
-          ile <Text style={styles.installStrong}>"Ana Ekrana Ekle"</Text> diyerek uygulama
-          gibi kullanabilirsin.
+
+      {/* QR kart */}
+      <View style={[iStyles.card, { alignItems: 'center' }]}>
+        <View style={[iStyles.cardHeader, { justifyContent: 'center' }]}>
+          <View style={iStyles.cardIcon}><Text style={iStyles.cardIconText}>🔲</Text></View>
+          <Text style={iStyles.cardTitle}>Veya QR ile</Text>
+        </View>
+        <Text style={[iStyles.cardText, { textAlign: 'center' }]}>
+          Bilgisayardan açtıysan, telefon kamerasıyla bu QR'ı okut:
         </Text>
-      )}
+        <View style={iStyles.qrBox}>
+          <Image source={{ uri: qrSrc }} style={{ width: 200, height: 200 }} />
+        </View>
+      </View>
+
+      {/* Android adımları */}
+      {platform !== 'ios' ? (
+        <View style={iStyles.card}>
+          <View style={iStyles.cardHeader}>
+            <View style={iStyles.cardIcon}><Text style={iStyles.cardIconText}>🤖</Text></View>
+            <Text style={iStyles.cardTitle}>Android — Kurulum Adımları</Text>
+          </View>
+          {[
+            'Yukarıdaki "Android APK İndir" butonuna bas',
+            'Expo\'nun build sayfasında "Install" butonuna tıkla, APK iner',
+            'İndirilenler\'den APK\'ya dokun — "Bilinmeyen kaynak" uyarısı çıkar',
+            'Ayarlar açılır → tarayıcı için "Bu kaynağa izin ver" → geri dön',
+            '"Yükle" → bekle → "Aç"',
+          ].map((step, i) => (
+            <View key={i} style={iStyles.stepRow}>
+              <View style={iStyles.stepNum}><Text style={iStyles.stepNumText}>{i + 1}</Text></View>
+              <Text style={iStyles.stepText}>{step}</Text>
+            </View>
+          ))}
+        </View>
+      ) : null}
+
+      {/* iPhone bölümü */}
+      {platform !== 'android' ? (
+        <View style={iStyles.card}>
+          <View style={iStyles.cardHeader}>
+            <View style={iStyles.cardIcon}><Text style={iStyles.cardIconText}>🍎</Text></View>
+            <Text style={iStyles.cardTitle}>iPhone kullanıyorsan</Text>
+          </View>
+          <Text style={[iStyles.cardText, { marginBottom: 14 }]}>
+            Uygulamamız şu an iOS için <Text style={iStyles.strong}>web sürümünde</Text> mevcut.
+            Kurulum gerekmiyor — Safari'de tek dokunuşla açılıyor.
+          </Text>
+          <Text style={[iStyles.cardText, { marginBottom: 14 }]}>
+            Eğer <Text style={iStyles.strong}>app gibi çalışsın</Text> istersen, sayfayı açtıktan
+            sonra Safari'nin paylaş menüsünden (alt çubuktaki ↑ simgesi)
+            <Text style={iStyles.strong}> "Ana Ekrana Ekle" </Text>seçeneğine dokun.
+          </Text>
+          <Text style={iStyles.cardText}>
+            Ana ekranında ayrı bir simge oluşur. Dokunduğunda tarayıcı çubukları olmadan
+            tam ekran açılır — tıpkı yüklenmiş bir uygulama gibi 📱
+          </Text>
+        </View>
+      ) : null}
     </View>
   );
 }
+
+// /install sayfasının kart düzenini birebir taklit eden stil paleti
+const iStyles = StyleSheet.create({
+  card: {
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
+    borderRadius: 22,
+    padding: 24,
+    marginBottom: 18,
+  },
+  cardHeader: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 14 },
+  cardIcon: {
+    width: 36, height: 36, borderRadius: 10,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  cardIconText: { fontSize: 18 },
+  cardTitle: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  cardText: { color: 'rgba(255,255,255,0.75)', fontSize: 13, lineHeight: 20 },
+  strong: { color: '#fff', fontWeight: '700' },
+  btnPrimary: {
+    backgroundColor: '#fff',
+    paddingVertical: 16, paddingHorizontal: 20,
+    borderRadius: 14,
+    marginBottom: 10,
+  },
+  btnPrimaryText: { color: '#6366f1', fontSize: 15, fontWeight: '700', textAlign: 'center' },
+  btnSecondary: {
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,0.25)',
+    paddingVertical: 16, paddingHorizontal: 20,
+    borderRadius: 14,
+    marginBottom: 10,
+  },
+  btnSecondaryText: { color: '#fff', fontSize: 15, fontWeight: '700', textAlign: 'center' },
+  note: {
+    color: 'rgba(255,255,255,0.6)',
+    fontSize: 12, lineHeight: 18,
+    textAlign: 'center', marginTop: 10,
+  },
+  qrBox: {
+    backgroundColor: '#fff',
+    padding: 16,
+    borderRadius: 18,
+    marginTop: 16,
+  },
+  stepRow: {
+    flexDirection: 'row', alignItems: 'flex-start',
+    paddingVertical: 10, gap: 12,
+  },
+  stepNum: {
+    width: 26, height: 26, borderRadius: 13,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    alignItems: 'center', justifyContent: 'center',
+    marginTop: 1,
+  },
+  stepNumText: { color: '#fff', fontSize: 12, fontWeight: '800' },
+  stepText: { flex: 1, color: 'rgba(255,255,255,0.85)', fontSize: 13, lineHeight: 19 },
+});
 
 const styles = StyleSheet.create({
   scroll: { flexGrow: 1, paddingHorizontal: 20 },
@@ -275,31 +400,4 @@ const styles = StyleSheet.create({
   qrEmoji: { fontSize: 18 },
   qrBtnText: { color: colors.brand, fontSize: 15, fontWeight: '700' },
   footer: { textAlign: 'center', color: 'rgba(255,255,255,0.5)', fontSize: 11, marginTop: 28 },
-
-  // "Ana Ekrana Ekle" kartı — yalnızca web sürümünde, standalone değilken görünür
-  installCard: {
-    marginTop: 16,
-    padding: 18,
-    borderRadius: radius.lg,
-    backgroundColor: 'rgba(255,255,255,0.10)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.18)',
-  },
-  installHeader: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    marginBottom: 10,
-  },
-  installEmoji: { fontSize: 18 },
-  installTitle: { color: '#fff', fontSize: 14, fontWeight: '800', letterSpacing: 0.2 },
-  installText: {
-    color: 'rgba(255,255,255,0.85)',
-    fontSize: 12.5, lineHeight: 18,
-    marginTop: 6, fontWeight: '500',
-  },
-  installInline: {
-    color: '#fff', fontWeight: '800',
-    backgroundColor: 'rgba(255,255,255,0.18)',
-    paddingHorizontal: 4, borderRadius: 4,
-  },
-  installStrong: { color: '#fff', fontWeight: '800' },
 });
