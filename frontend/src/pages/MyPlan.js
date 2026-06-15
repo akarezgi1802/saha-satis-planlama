@@ -17,6 +17,18 @@ function fmtArrival(totalMin) {
   return `${String(arrival.getHours()).padStart(2, "0")}:${String(arrival.getMinutes()).padStart(2, "0")}`;
 }
 
+// Dakika cinsinden süreyi "X sa Y dk" formatına çevirir.
+// Örn: 125 -> "2 sa 5 dk", 45 -> "45 dk", 60 -> "1 sa".
+function fmtDuration(totalMin) {
+  if (totalMin == null) return "—";
+  const m = Math.round(totalMin);
+  const h = Math.floor(m / 60);
+  const mm = m % 60;
+  if (h === 0) return `${mm} dk`;
+  if (mm === 0) return `${h} sa`;
+  return `${h} sa ${mm} dk`;
+}
+
 const COLORS = ["#6366f1", "#f59e0b", "#10b981", "#ef4444", "#8b5cf6", "#ec4899", "#14b8a6", "#f97316", "#3b82f6", "#84cc16", "#06b6d4", "#e11d48"];
 const DAY_NAMES = { 1: "Pazartesi", 2: "Salı", 3: "Çarşamba", 4: "Perşembe", 5: "Cuma", 6: "Cumartesi" };
 const DAY_SHORT = { 1: "Pzt", 2: "Salı", 3: "Çar", 4: "Per", 5: "Cum", 6: "Cmt" };
@@ -401,7 +413,7 @@ function DailyPlanTab({ data, depot, days, selectedDay, setSelectedDay }) {
           {dayRoute && (
             <div style={{ padding: "12px 16px", borderTop: "1px solid var(--border)", display: "flex", gap: 20, fontSize: 13, color: "#64748b" }}>
               <span>Mesafe: <strong style={{ color: "#1e293b" }}>{dayRoute.total_distance?.toFixed(1) || "—"} km</strong></span>
-              <span>Süre: <strong style={{ color: "#1e293b" }}>{dayRoute.total_time_minutes ? Math.round(dayRoute.total_time_minutes) + " dk" : "—"}</strong></span>
+              <span>Yol süresi: <strong style={{ color: "#1e293b" }}>{fmtDuration(dayRoute.total_time_minutes)}</strong></span>
               <span>Müşteri: <strong style={{ color: "#1e293b" }}>{dayRoute.customer_count}</strong></span>
             </div>
           )}

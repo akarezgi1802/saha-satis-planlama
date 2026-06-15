@@ -200,6 +200,36 @@ def solve_tdvrp(n, travel_time, service_time, time_window, demand,
                 if pulp.value(z[(i, j, rho)]) > 0.5:
                     edge_slots[(i, j)] = rho
 
+    # ─── KÖK NEDEN AUDİTİ ────────────────────────────────────────────
+    # pulp.value(model.objective) ile aktif kenarların travel_time toplamı
+    # arasında veya bunlar ile y[j] zincirinin yansıttığı toplam yol
+    # süresi arasında **uyumsuzluk** yaşanıyor (canlıda gözlemlendi:
+    # objective=44.89 dk vs y-zinciri travel=120 dk gibi 3 kat fark).
+    # Tutarsızlık olduğunda Render log'una basıp kanıt bırakıyoruz.
+    if verbose and n > 0:
+        manual_edge_sum = sum(travel_time[rho][i][j]
+                              for (i, j), rho in edge_slots.items())
+        last_arrival = max(arrival.values()) if arrival else arrival[0]
+        # y[j] zinciri: arrival[last] - y[0] = (n-1) servis + n yol kenarı (m_n→depo hariç)
+        # n_visit servis süresi sabit DEFAULT_SERVICE_TIME değil parametreyle gelmiş
+        n_visit = len(route) - 2 if route else 0  # depot ve son depot hariç
+        servis_toplam = sum(service_time[:n_visit])
+        chain_travel_excl_return = last_arrival - arrival[0] - servis_toplam
+        ret_edge_time = travel_time[edge_slots[(route[-2], route[-1])]][route[-2], route[-1]] \
+            if route and len(route) >= 2 and (route[-2], route[-1]) in edge_slots else 0
+        chain_travel_total = chain_travel_excl_return + ret_edge_time
+
+        mismatch_obj = abs(objective - manual_edge_sum) > 0.05
+        mismatch_chain = abs(manual_edge_sum - chain_travel_total) > 1.0
+        if mismatch_obj or mismatch_chain:
+            print(f"  ⚠️ MIP audit [{model_name}]: "
+                  f"pulp_obj={objective:.2f}, manual_edge_sum={manual_edge_sum:.2f}, "
+                  f"y_chain_travel={chain_travel_total:.2f} "
+                  f"(n={n_visit}, son varış={last_arrival:.0f})", flush=True)
+            print(f"    Active edges: "
+                  + ", ".join([f"({i}→{j} slot{r}={travel_time[r][i][j]:.1f})"
+                               for (i, j), r in edge_slots.items()]), flush=True)
+
     return {"status": status, "objective": objective, "route": route,
             "arrival_times": arrival, "edge_slots": edge_slots,
             "solve_time": solve_time}
@@ -424,10 +454,17 @@ def solve_route(
             if 0 < j <= n:
                 arrival_map[custs[j - 1]] = current_time
 
+        # Tutarlılık: total_time'ı arrival_map'ten türet — bkz. MILP yolundaki not.
+        # NN'de aslında tutarlı olmalı ama tek formül kullanmak audit'i kolaylaştırır.
+        if arrival_map:
+            last_arr = max(arrival_map.values())
+            consistent_time = last_arr - 480 - (len(arrival_map) - 1) * DEFAULT_SERVICE_TIME
+        else:
+            consistent_time = nn_time
         return {
             "route": route_indices,
             "total_distance": total_dist,
-            "total_time": nn_time,
+            "total_time": consistent_time,
             "arrival_times": arrival_map,
             "status": "heuristic",
         }
@@ -455,10 +492,31 @@ def solve_route(
                                     float(y_coords[route_indices[-1]]),
                                     depot_x, depot_y)
 
+    # ─── total_time: tek doğruluk kaynağı = y[j] zinciri ──────────────
+    # MILP'in objective değeri ile arrival_times'tan türetilen yol süresi
+    # arasında 3 kata kadar uyumsuzluk gözlemlendi (Plan 11 Salı ST=2:
+    # objective=44.89 dk, y-zinciri yol=120 dk). y-zinciri kullanıcının
+    # gördüğü saatlerle birebir tutarlı olduğu için tek kaynak o.
+    # solve_tdvrp içindeki audit log mismatch görünce kanıt basacak.
+    if arrival_map:
+        last_arr = max(arrival_map.values())
+        # arrival[son] - 480 = depo'dan ayrılış → son müşteriye varışa kadar
+        # geçen toplam dk (servis + yol dahil, son müşteriden depoya dönüş hariç).
+        # Sadece yol süresini istiyoruz → (n-1) servisi çıkar.
+        consistent_time = last_arr - 480 - (len(arrival_map) - 1) * DEFAULT_SERVICE_TIME
+    else:
+        consistent_time = result["objective"]
+
+    if result["objective"] is not None and abs(result["objective"] - consistent_time) > 1.0:
+        print(f"[solve_route] ⚠️ total_time düzeltildi: "
+              f"MIP_objective={result['objective']:.2f} dk → "
+              f"arrival-zinciri={consistent_time:.2f} dk "
+              f"({len(arrival_map)} müşteri)", flush=True)
+
     return {
         "route": route_indices,
         "total_distance": total_dist,
-        "total_time": result["objective"],
+        "total_time": consistent_time,
         "arrival_times": arrival_map,
         "status": result["status"],
     }
