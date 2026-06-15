@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View, Text, TextInput, StyleSheet, KeyboardAvoidingView, Platform,
   TouchableOpacity, ScrollView, StatusBar,
@@ -147,12 +147,76 @@ export default function LoginScreen({ navigation }) {
             ) : null}
           </View>
 
+          <InstallHint />
+
           <Text style={styles.footer}>
             Backend: saha-satis-planlama-guncel.onrender.com
           </Text>
         </ScrollView>
       </KeyboardAvoidingView>
     </LinearGradient>
+  );
+}
+
+// Mobil web sürümünde (Expo Web) login ekranının altında gösterilen
+// "Ana Ekrana Ekle" kartı. Native APK'da hiç render edilmez, ana ekrana
+// zaten kurulu PWA olarak çalışan kullanıcılara da görünmez (standalone
+// kontrolü). Cihazı sniff edip iOS Safari mi Android Chrome mu olduğuna
+// göre talimatı şekillendirir.
+function InstallHint() {
+  const platform = useMemo(() => {
+    if (!IS_WEB) return null;
+    try {
+      // PWA olarak ana ekrandan açılmışsa hiç gösterme
+      const standalone =
+        (typeof window !== 'undefined' && window.matchMedia
+          && window.matchMedia('(display-mode: standalone)').matches)
+        || (typeof window !== 'undefined' && window.navigator && window.navigator.standalone === true);
+      if (standalone) return null;
+      const ua = (typeof navigator !== 'undefined' ? navigator.userAgent : '') || '';
+      if (/iPhone|iPad|iPod/i.test(ua)) return 'ios';
+      if (/Android/i.test(ua)) return 'android';
+      return 'desktop';
+    } catch (e) {
+      return null;
+    }
+  }, []);
+  if (!platform) return null;
+
+  return (
+    <View style={styles.installCard}>
+      <View style={styles.installHeader}>
+        <Text style={styles.installEmoji}>📱</Text>
+        <Text style={styles.installTitle}>Ana Ekrana Ekle</Text>
+      </View>
+      {platform === 'ios' ? (
+        <>
+          <Text style={styles.installText}>
+            Safari'nin alt çubuğundaki paylaş <Text style={styles.installInline}>↑</Text> simgesine dokun, açılan
+            menüden <Text style={styles.installStrong}>"Ana Ekrana Ekle"</Text> seç.
+          </Text>
+          <Text style={styles.installText}>
+            Ana ekranda ayrı bir simge oluşur — uygulama gibi tam ekran açılır, tarayıcı çubukları görünmez.
+          </Text>
+        </>
+      ) : platform === 'android' ? (
+        <>
+          <Text style={styles.installText}>
+            Chrome'un sağ üstündeki menü <Text style={styles.installInline}>⋮</Text> simgesine dokun, açılan listeden
+            <Text style={styles.installStrong}> "Ana ekrana ekle" </Text> seç.
+          </Text>
+          <Text style={styles.installText}>
+            Telefonun ana ekranında uygulama simgesi belirir, kurulum gerekmez.
+          </Text>
+        </>
+      ) : (
+        <Text style={styles.installText}>
+          Sayfayı telefonundan açtığında Safari (iPhone) veya Chrome (Android) paylaş/menü
+          ile <Text style={styles.installStrong}>"Ana Ekrana Ekle"</Text> diyerek uygulama
+          gibi kullanabilirsin.
+        </Text>
+      )}
+    </View>
   );
 }
 
@@ -211,4 +275,31 @@ const styles = StyleSheet.create({
   qrEmoji: { fontSize: 18 },
   qrBtnText: { color: colors.brand, fontSize: 15, fontWeight: '700' },
   footer: { textAlign: 'center', color: 'rgba(255,255,255,0.5)', fontSize: 11, marginTop: 28 },
+
+  // "Ana Ekrana Ekle" kartı — yalnızca web sürümünde, standalone değilken görünür
+  installCard: {
+    marginTop: 16,
+    padding: 18,
+    borderRadius: radius.lg,
+    backgroundColor: 'rgba(255,255,255,0.10)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.18)',
+  },
+  installHeader: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    marginBottom: 10,
+  },
+  installEmoji: { fontSize: 18 },
+  installTitle: { color: '#fff', fontSize: 14, fontWeight: '800', letterSpacing: 0.2 },
+  installText: {
+    color: 'rgba(255,255,255,0.85)',
+    fontSize: 12.5, lineHeight: 18,
+    marginTop: 6, fontWeight: '500',
+  },
+  installInline: {
+    color: '#fff', fontWeight: '800',
+    backgroundColor: 'rgba(255,255,255,0.18)',
+    paddingHorizontal: 4, borderRadius: 4,
+  },
+  installStrong: { color: '#fff', fontWeight: '800' },
 });
