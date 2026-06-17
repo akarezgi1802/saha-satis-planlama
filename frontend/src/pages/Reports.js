@@ -28,6 +28,7 @@ export default function Reports() {
 
   const [showDetail, setShowDetail] = useState(null);
   const [isMobile, setIsMobile] = useState(false);
+  const [debugInfo, setDebugInfo] = useState(null);
 
   const customers = Array.isArray(customersList) ? customersList : [];
   const users = Array.isArray(usersList) ? usersList : [];
@@ -65,10 +66,22 @@ export default function Reports() {
       if (filterUser) p.user_id = filterUser;
       if (filterCustomers.length > 0) p.customer_ids = filterCustomers.join(",");
 
+      // Diagnostic: console + UI banner — müşteri filtresi sorununu izlemek için
+      const qs = new URLSearchParams(p).toString();
+      // eslint-disable-next-line no-console
+      console.log("[Reports] /reports/sales çağrılıyor:", qs || "(filtresiz)", "params:", p);
+
+      const t0 = performance.now();
       const [salesRes, sumRes] = await Promise.all([
         api.get("/reports/sales", { params: p }),
         api.get("/reports/summary", { params: p }),
       ]);
+      const ms = Math.round(performance.now() - t0);
+      const rows = Array.isArray(salesRes.data) ? salesRes.data.length : 0;
+      // eslint-disable-next-line no-console
+      console.log(`[Reports] ✓ ${rows} satır, ${ms} ms`);
+      setDebugInfo({ params: p, qs, rows, ms });
+
       setSales(Array.isArray(salesRes.data) ? salesRes.data : []);
       setSummary(sumRes.data && typeof sumRes.data === "object" ? sumRes.data : null);
     } catch (err) {
@@ -76,6 +89,7 @@ export default function Reports() {
       setError(err?.response?.data?.detail || err?.message || "Veriler yuklenemedi");
       setSales([]);
       setSummary(null);
+      setDebugInfo({ error: err?.message || "?" });
     }
     setLoading(false);
   }, [period, startDate, endDate, filterUser, filterCustomers]);
@@ -204,6 +218,31 @@ export default function Reports() {
             </div>
           </div>
         </div>
+
+        {/* Debug bandı — müşteri filtresi sorununu izlemek için geçici */}
+        {debugInfo ? (
+          <div style={{
+            margin: "0 0 12px", padding: "8px 12px",
+            background: debugInfo.error ? "#fee2e2" : "#f1f5f9",
+            border: `1px solid ${debugInfo.error ? "#fca5a5" : "#cbd5e1"}`,
+            borderRadius: 8, fontSize: 11, color: "#475569",
+            display: "flex", flexWrap: "wrap", gap: 12, alignItems: "center",
+            fontFamily: "JetBrains Mono, monospace",
+          }}>
+            {debugInfo.error ? (
+              <span style={{ color: "#b91c1c" }}>❌ {debugInfo.error}</span>
+            ) : (
+              <>
+                <span><b style={{ color: "#1e293b" }}>GET /reports/sales?{debugInfo.qs || "(filtresiz)"}</b></span>
+                <span>→ <b style={{ color: debugInfo.rows > 0 ? "#10b981" : "#f59e0b" }}>{debugInfo.rows} satır</b></span>
+                <span>· {debugInfo.ms} ms</span>
+                <span style={{ marginLeft: "auto", color: "#94a3b8" }}>
+                  filtre: {Object.keys(debugInfo.params).length === 0 ? "yok" : JSON.stringify(debugInfo.params)}
+                </span>
+              </>
+            )}
+          </div>
+        ) : null}
 
         {/* ST Bazli Ozet */}
         {summary && Array.isArray(summary.rep_stats) && summary.rep_stats.length > 0 && (
