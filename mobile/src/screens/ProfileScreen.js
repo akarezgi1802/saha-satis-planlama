@@ -27,7 +27,65 @@ export default function ProfileScreen() {
   const [loading, setLoading] = useState(true);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
+  // Web'de avatar yükleme — native HTML input + canvas ile 256x256 resize
+  // (expo-image-picker'ın izin akışı web'de tutmuyordu, sessizce 'izin yok'
+  // dönüp duruyordu; HTML File API doğrudan ve güvenilir).
+  const pickAvatarWeb = useCallback(() => {
+    if (typeof document === 'undefined') return;
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.style.display = 'none';
+    input.onchange = async (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+      try {
+        setUploadingAvatar(true);
+        // Canvas ile 256x256 kare crop + JPEG q=0.85 → ~30-80 KB
+        const dataUrl = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onerror = () => reject(new Error('Dosya okunamadı'));
+          reader.onload = () => {
+            const img = new Image();
+            img.onerror = () => reject(new Error('Görsel yüklenemedi'));
+            img.onload = () => {
+              const size = 256;
+              const canvas = document.createElement('canvas');
+              canvas.width = size; canvas.height = size;
+              const ctx = canvas.getContext('2d');
+              // center-square crop
+              const s = Math.min(img.width, img.height);
+              const sx = (img.width - s) / 2;
+              const sy = (img.height - s) / 2;
+              ctx.drawImage(img, sx, sy, s, s, 0, 0, size, size);
+              resolve(canvas.toDataURL('image/jpeg', 0.85));
+            };
+            img.src = reader.result;
+          };
+          reader.readAsDataURL(file);
+        });
+        await api.put('/auth/profile/avatar', { avatar: dataUrl });
+        await refreshUser();
+      } catch (err) {
+        if (typeof window !== 'undefined') {
+          window.alert('Hata: ' + (err?.response?.data?.detail || err?.message || 'Fotoğraf yüklenemedi'));
+        }
+      } finally {
+        setUploadingAvatar(false);
+      }
+    };
+    document.body.appendChild(input);
+    input.click();
+    setTimeout(() => { try { document.body.removeChild(input); } catch (e) {} }, 1000);
+  }, [refreshUser]);
+
   const pickAvatar = useCallback(async (fromCamera) => {
+    // Web kullanıcıları HTML input pattern'ine yönlendirilir — native iznileri
+    // beklemenin anlamı yok ve sessizce başarısız oluyordu.
+    if (Platform.OS === 'web') {
+      pickAvatarWeb();
+      return;
+    }
     try {
       if (fromCamera) {
         const { status } = await ImagePicker.requestCameraPermissionsAsync();
@@ -46,10 +104,6 @@ export default function ProfileScreen() {
         mediaTypes: ImagePicker.MediaTypeOptions?.Images || 'images',
         allowsEditing: true,
         aspect: [1, 1],
-        // Avatar küçük gösterildiği için yüksek kalite gereksiz; 0.3 ile
-        // ~3 MB dosya ~500 KB'a iner — localStorage quota ve render
-        // performansı için kritik (avatar büyük olunca user object'i
-        // AsyncStorage'a yazılamıyor, state stale kalıyordu).
         quality: 0.3,
         base64: true,
       };
@@ -69,7 +123,7 @@ export default function ProfileScreen() {
     } finally {
       setUploadingAvatar(false);
     }
-  }, [refreshUser]);
+  }, [refreshUser, pickAvatarWeb]);
 
   const removeAvatar = useCallback(async () => {
     const confirm = Platform.OS === 'web'
@@ -95,15 +149,13 @@ export default function ProfileScreen() {
   const openAvatarSheet = useCallback(() => {
     const hasAvatar = !!user?.avatar;
     if (Platform.OS === 'web') {
-      // Web'de native ActionSheet yok — basit confirm chain
+      // Web: avatar yoksa direkt dosya seçici aç (tek tık UX).
+      // Avatar varsa önce sil mi yükle mi sor.
+      if (!hasAvatar) { pickAvatarWeb(); return; }
       const choice = typeof window !== 'undefined'
-        ? window.prompt(
-            'Profil fotoğrafı:\n  1 = Galeriden seç\n' + (hasAvatar ? '  2 = Sil\n' : '') + 'İptal için boş bırak',
-            '1'
-          )
-        : null;
-      if (choice === '1') pickAvatar(false);
-      else if (choice === '2' && hasAvatar) removeAvatar();
+        ? window.confirm('Mevcut profil fotoğrafını sil ve yenisini yükle?\n\nTamam = Yeni fotoğraf seç\nİptal = Hiçbir şey yapma')
+        : false;
+      if (choice) pickAvatarWeb();
       return;
     }
     const buttons = [
