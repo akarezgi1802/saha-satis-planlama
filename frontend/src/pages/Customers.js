@@ -62,6 +62,7 @@ export default function Customers() {
   const [filterFreq, setFilterFreq] = useState("");
   const [filterType, setFilterType] = useState("");
   const [sortBy, setSortBy] = useState("");
+  const [showFormatHelp, setShowFormatHelp] = useState(false);
   const [geocoding, setGeocoding] = useState(false);
   const [geocodeMsg, setGeocodeMsg] = useState("");
   const [showCreate, setShowCreate] = useState(false);
@@ -393,7 +394,35 @@ export default function Customers() {
           >
             {uploading ? "Yükleniyor..." : "Excel / CSV Yükle"}
           </button>
+          <button
+            type="button"
+            className="btn btn-default"
+            onClick={() => setShowFormatHelp(true)}
+            title="Excel dosyasında hangi sütunlar olmalı?"
+            style={{ minWidth: 0, padding: "8px 12px" }}
+          >
+            ℹ️ Format
+          </button>
         </div>
+      </div>
+      <div style={{
+        margin: "0 24px 12px", padding: "10px 14px",
+        background: "#f8fafc", border: "1px dashed #cbd5e1",
+        borderRadius: 8, fontSize: 12, color: "#475569",
+        display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap",
+      }}>
+        <span style={{ fontSize: 14 }}>📋</span>
+        <span>
+          Yüklediğin dosyada şu sütunlar olmalı: <b>Müşteri Adı</b>,
+          <b> Aylık Ciro</b>, <b>Ziyaret Sıklığı</b> + (<b>Enlem/Boylam</b> ya da <b>Adres</b>).
+        </span>
+        <button
+          type="button"
+          onClick={() => setShowFormatHelp(true)}
+          style={{ background: "transparent", border: "none", color: "var(--brand)", fontWeight: 700, cursor: "pointer", padding: 0, fontSize: 12 }}
+        >
+          Tüm sütun adlarını gör →
+        </button>
       </div>
       {uploadMsg && (
         <div style={{ margin: "0 24px 12px", padding: "12px 16px", background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: 8, fontSize: 13, color: "#1e40af", display: "flex", alignItems: "center", gap: 10 }}>
@@ -401,6 +430,7 @@ export default function Customers() {
           {uploadMsg}
         </div>
       )}
+      {showFormatHelp && <FormatHelpModal onClose={() => setShowFormatHelp(false)} />}
       <div className="page-body">
         <div className="kpi-strip">
           <div className="kpi-tile">
@@ -855,6 +885,170 @@ export default function Customers() {
         </div>
       )}
 
+    </div>
+  );
+}
+
+// ─── Excel/CSV format yardım modali ────────────────────────────────
+// Backend'in (customers.py upload-excel) column_mapping'inde tanıdığı tüm
+// başlık varyasyonlarını gruplara ayırarak gösterir. Sütun başlıklarından
+// hangisi olursa olsun aynı alana yazılır.
+function FormatHelpModal({ onClose }) {
+  const groups = [
+    {
+      key: "name",
+      label: "Müşteri Adı",
+      required: true,
+      desc: "İşletmenin / müşterinin adı",
+      aliases: ["Müşteri Adı", "Müşteri", "İşletme Adı", "İşletme", "Firma", "Firma Adı", "Ad", "Unvan", "musteri", "isletme", "firma"],
+    },
+    {
+      key: "monthly_revenue",
+      label: "Aylık Ciro",
+      required: true,
+      desc: "Müşterinin aylık satış cirosu (₺)",
+      aliases: ["Aylık Ciro", "Ciro", "Aylık Gelir", "Gelir", "Aylik_Ciro", "ciro"],
+    },
+    {
+      key: "visit_frequency",
+      label: "Ziyaret Sıklığı",
+      required: true,
+      desc: "Haftada kaç kez ziyaret edilmeli (1–6)",
+      aliases: ["Ziyaret Sıklığı", "Ziyaret", "Haftalık Ziyaret", "Ziyaret_Sikligi", "ziyaret"],
+    },
+    {
+      key: "coords",
+      label: "Enlem / Boylam",
+      required: false,
+      requiredNote: "Adres yerine ya da onunla birlikte",
+      desc: "GPS koordinatları (varsa harita oto-yerleştirilir)",
+      aliases: ["Enlem + Boylam", "Latitude + Longitude", "lat + lng", "X_Koordinati + Y_Koordinati"],
+    },
+    {
+      key: "address",
+      label: "Adres",
+      required: false,
+      requiredNote: "Koordinat yoksa zorunlu",
+      desc: "Tam adres metni. Adres veya İl/İlçe/Mahalle/Sokak ayrı sütunlar olabilir.",
+      aliases: ["Adres", "Tam Adres", "Konum", "Açık Adres", "Address", "İl + İlçe + Mahalle + Sokak + Bina No"],
+    },
+    {
+      key: "customer_type",
+      label: "Müşteri Tipi",
+      required: false,
+      desc: "Bakkal, market, büfe vb. (opsiyonel kategoriler)",
+      aliases: ["Müşteri Tipi", "Tip", "Musteri_Tipi"],
+    },
+    {
+      key: "phone",
+      label: "Telefon",
+      required: false,
+      desc: "İletişim numarası",
+      aliases: ["Telefon", "Tel", "GSM", "Cep", "Phone", "telefon"],
+    },
+  ];
+
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: "fixed", inset: 0,
+        background: "rgba(15,23,42,0.78)",
+        backdropFilter: "blur(4px)",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        padding: 20, zIndex: 1000,
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          background: "#fff", borderRadius: 16,
+          width: "100%", maxWidth: 720, maxHeight: "90vh",
+          display: "flex", flexDirection: "column", overflow: "hidden",
+        }}
+      >
+        <div style={{
+          padding: "16px 22px", borderBottom: "1px solid var(--border)",
+          display: "flex", justifyContent: "space-between", alignItems: "center",
+        }}>
+          <div>
+            <div style={{ fontSize: 16, fontWeight: 800, color: "#1e293b" }}>
+              📋 Excel / CSV Yükleme Formatı
+            </div>
+            <div style={{ fontSize: 12, color: "#64748b", marginTop: 3 }}>
+              Her sütun aşağıdaki adlardan herhangi biriyle gelebilir — sistem otomatik tanır.
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            style={{
+              background: "transparent", border: "none", fontSize: 24,
+              color: "#64748b", cursor: "pointer", padding: 4, lineHeight: 1,
+            }}
+            title="Kapat"
+          >×</button>
+        </div>
+
+        <div style={{ overflowY: "auto", padding: 22, background: "#f8fafc" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            {groups.map((g) => (
+              <div
+                key={g.key}
+                style={{
+                  background: "#fff",
+                  border: `1px solid ${g.required ? "rgba(239,68,68,0.30)" : "var(--border)"}`,
+                  borderRadius: 12, padding: "14px 16px",
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                  <span style={{ fontSize: 14, fontWeight: 800, color: "#1e293b" }}>{g.label}</span>
+                  {g.required ? (
+                    <span style={{
+                      fontSize: 10, fontWeight: 800,
+                      padding: "2px 8px", borderRadius: 999,
+                      background: "#fee2e2", color: "#b91c1c", letterSpacing: 0.4,
+                    }}>ZORUNLU</span>
+                  ) : (
+                    <span style={{
+                      fontSize: 10, fontWeight: 800,
+                      padding: "2px 8px", borderRadius: 999,
+                      background: "#e0e7ff", color: "#3730a3", letterSpacing: 0.4,
+                    }}>OPSİYONEL</span>
+                  )}
+                  {g.requiredNote ? (
+                    <span style={{ fontSize: 11, color: "#64748b", fontStyle: "italic" }}>
+                      ({g.requiredNote})
+                    </span>
+                  ) : null}
+                </div>
+                <div style={{ fontSize: 12, color: "#475569", marginBottom: 8 }}>{g.desc}</div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                  {g.aliases.map((a) => (
+                    <span
+                      key={a}
+                      style={{
+                        fontSize: 11, fontWeight: 600,
+                        padding: "3px 8px", borderRadius: 6,
+                        background: "#f1f5f9", color: "#334155",
+                        fontFamily: "JetBrains Mono, monospace",
+                      }}
+                    >{a}</span>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div style={{
+            marginTop: 16, padding: "12px 14px",
+            background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: 10,
+            fontSize: 12, color: "#1e40af", lineHeight: 1.5,
+          }}>
+            💡 <b>İpucu:</b> Sütun başlıklarının üst harfli/küçük harfli olması fark etmez, boşluklar otomatik temizlenir.
+            Aynı bilgi için bir tane sütun yeterli — sistem ilk eşleşeni kullanır. Desteklenen dosya türleri: <b>.xlsx</b>, <b>.xls</b>, <b>.csv</b>.
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
