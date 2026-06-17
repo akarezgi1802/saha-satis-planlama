@@ -215,6 +215,28 @@ def update_profile(
     return user
 
 
+@router.put("/profile/avatar", response_model=UserOut)
+def update_avatar(
+    body: dict,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Avatar olarak base64 data URL bekler. body={'avatar': 'data:image/jpeg;base64,...'}
+    Boş string veya None gönderilirse mevcut avatar silinir → baş harf fallback'e döner."""
+    avatar = body.get("avatar")
+    if avatar and not isinstance(avatar, str):
+        raise HTTPException(status_code=400, detail="avatar string olmalı")
+    if avatar and not avatar.startswith("data:image/"):
+        raise HTTPException(status_code=400, detail="avatar data URL olmalı (data:image/...)")
+    # ~3 MB üst sınır (base64 ile ~4 MB string ≈ 3 MB binary)
+    if avatar and len(avatar) > 4_500_000:
+        raise HTTPException(status_code=400, detail="Fotoğraf çok büyük (en fazla ~3 MB)")
+    user.avatar = avatar or None
+    db.commit()
+    db.refresh(user)
+    return user
+
+
 @router.put("/password")
 def change_password(
     body: dict,

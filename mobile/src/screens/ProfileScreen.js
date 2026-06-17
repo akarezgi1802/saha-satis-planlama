@@ -1,10 +1,11 @@
 import React, { useCallback, useState } from 'react';
 import {
-  View, Text, ScrollView, StyleSheet, TouchableOpacity, Alert, StatusBar, ActivityIndicator, Platform,
+  View, Text, ScrollView, StyleSheet, TouchableOpacity, Alert, StatusBar, ActivityIndicator, Platform, Image,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import * as ImagePicker from 'expo-image-picker';
 import { useAuth } from '../AuthContext';
 import api, { API_BASE_URL } from '../api';
 import { colors, radius, spacing, shadow, brandGradient, shellGradient } from '../theme';
@@ -18,12 +19,97 @@ function formatTL(n) {
 }
 
 export default function ProfileScreen() {
-  const { user, logout } = useAuth();
+  const { user, logout, refreshUser } = useAuth();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const [sustainability, setSustainability] = useState(null);
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+
+  const pickAvatar = useCallback(async (fromCamera) => {
+    try {
+      if (fromCamera) {
+        const { status } = await ImagePicker.requestCameraPermissionsAsync();
+        if (status !== 'granted') {
+          Alert.alert('İzin gerekli', 'Profil fotoğrafı çekmek için kamera izni gerekli.');
+          return;
+        }
+      } else {
+        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (status !== 'granted') {
+          Alert.alert('İzin gerekli', 'Galeriden fotoğraf seçmek için izin gerekli.');
+          return;
+        }
+      }
+      const opts = {
+        mediaTypes: ImagePicker.MediaTypeOptions?.Images || 'images',
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.6,
+        base64: true,
+      };
+      const res = fromCamera
+        ? await ImagePicker.launchCameraAsync(opts)
+        : await ImagePicker.launchImageLibraryAsync(opts);
+      if (res.canceled || !res.assets?.[0]?.base64) return;
+      const asset = res.assets[0];
+      const mime = asset.mimeType || 'image/jpeg';
+      const dataUrl = `data:${mime};base64,${asset.base64}`;
+
+      setUploadingAvatar(true);
+      await api.put('/auth/profile/avatar', { avatar: dataUrl });
+      await refreshUser();
+    } catch (e) {
+      Alert.alert('Hata', e?.response?.data?.detail || 'Fotoğraf yüklenemedi');
+    } finally {
+      setUploadingAvatar(false);
+    }
+  }, [refreshUser]);
+
+  const removeAvatar = useCallback(async () => {
+    const confirm = Platform.OS === 'web'
+      ? (typeof window !== 'undefined' && window.confirm('Profil fotoğrafını silmek istediğine emin misin?'))
+      : await new Promise((resolve) => {
+          Alert.alert('Fotoğrafı Sil', 'Profil fotoğrafını silmek istediğine emin misin?', [
+            { text: 'İptal', style: 'cancel', onPress: () => resolve(false) },
+            { text: 'Sil', style: 'destructive', onPress: () => resolve(true) },
+          ]);
+        });
+    if (!confirm) return;
+    setUploadingAvatar(true);
+    try {
+      await api.put('/auth/profile/avatar', { avatar: null });
+      await refreshUser();
+    } catch (e) {
+      Alert.alert('Hata', e?.response?.data?.detail || 'Silinemedi');
+    } finally {
+      setUploadingAvatar(false);
+    }
+  }, [refreshUser]);
+
+  const openAvatarSheet = useCallback(() => {
+    const hasAvatar = !!user?.avatar;
+    if (Platform.OS === 'web') {
+      // Web'de native ActionSheet yok — basit confirm chain
+      const choice = typeof window !== 'undefined'
+        ? window.prompt(
+            'Profil fotoğrafı:\n  1 = Galeriden seç\n' + (hasAvatar ? '  2 = Sil\n' : '') + 'İptal için boş bırak',
+            '1'
+          )
+        : null;
+      if (choice === '1') pickAvatar(false);
+      else if (choice === '2' && hasAvatar) removeAvatar();
+      return;
+    }
+    const buttons = [
+      { text: '📷 Kameradan çek', onPress: () => pickAvatar(true) },
+      { text: '🖼️ Galeriden seç', onPress: () => pickAvatar(false) },
+    ];
+    if (hasAvatar) buttons.push({ text: '🗑️ Sil', style: 'destructive', onPress: removeAvatar });
+    buttons.push({ text: 'İptal', style: 'cancel' });
+    Alert.alert('Profil Fotoğrafı', null, buttons);
+  }, [user?.avatar, pickAvatar, removeAvatar]);
 
   const load = useCallback(async () => {
     try {
@@ -76,11 +162,25 @@ export default function ProfileScreen() {
           <View style={{ width: 40 }} />
         </View>
 
-        <View style={styles.avatarBig}>
-          <Text style={styles.avatarBigText}>
-            {user?.full_name?.charAt(0).toUpperCase() || '?'}
-          </Text>
-        </View>
+        <TouchableOpacity
+          onPress={openAvatarSheet}
+          activeOpacity={0.85}
+          disabled={uploadingAvatar}
+          style={styles.avatarBig}
+        >
+          {user?.avatar ? (
+            <Image source={{ uri: user.avatar }} style={styles.avatarBigImg} />
+          ) : (
+            <Text style={styles.avatarBigText}>
+              {user?.full_name?.charAt(0).toUpperCase() || '?'}
+            </Text>
+          )}
+          <View style={styles.avatarEditBadge}>
+            {uploadingAvatar
+              ? <ActivityIndicator size="small" color="#fff" />
+              : <Text style={styles.avatarEditIcon}>📷</Text>}
+          </View>
+        </TouchableOpacity>
         <Text style={styles.name}>{user?.full_name}</Text>
         <Text style={styles.email}>{user?.email}</Text>
         <View style={styles.roleBadge}>
@@ -342,8 +442,18 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
     marginBottom: 10,
     borderWidth: 3, borderColor: 'rgba(255,255,255,0.25)',
+    position: 'relative', overflow: 'visible',
   },
   avatarBigText: { color: '#fff', fontWeight: '900', fontSize: 30 },
+  avatarBigImg: { width: '100%', height: '100%', borderRadius: 41 },
+  avatarEditBadge: {
+    position: 'absolute', bottom: -2, right: -2,
+    width: 28, height: 28, borderRadius: 14,
+    backgroundColor: colors.brand,
+    borderWidth: 2, borderColor: '#fff',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  avatarEditIcon: { fontSize: 13 },
   name: { color: '#fff', fontSize: 18, fontWeight: '800', letterSpacing: -0.3 },
   email: { color: 'rgba(255,255,255,0.7)', fontSize: 12, marginTop: 2 },
   roleBadge: {

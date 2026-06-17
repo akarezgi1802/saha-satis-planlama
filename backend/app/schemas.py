@@ -184,6 +184,7 @@ class UserOut(BaseModel):
     cluster_index: int | None
     is_active: int
     monthly_target: float | None = 0
+    avatar: str | None = None  # base64 data URL (None ise baş harf fallback)
     created_at: datetime
 
     model_config = {"from_attributes": True}

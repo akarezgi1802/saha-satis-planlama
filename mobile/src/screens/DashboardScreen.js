@@ -1,7 +1,7 @@
 import React, { useCallback, useState } from 'react';
 import {
   View, Text, ScrollView, StyleSheet, RefreshControl, StatusBar, ActivityIndicator,
-  TouchableOpacity,
+  TouchableOpacity, Image,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect } from '@react-navigation/native';
@@ -139,7 +139,11 @@ export default function DashboardScreen({ navigation }) {
         <View style={styles.heroRow}>
           <TouchableOpacity onPress={() => navigation.navigate('Profile')} activeOpacity={0.85}>
             <View style={styles.avatar}>
-              <Text style={styles.avatarText}>{user?.full_name?.charAt(0).toUpperCase() || '?'}</Text>
+              {user?.avatar ? (
+                <Image source={{ uri: user.avatar }} style={styles.avatarImg} />
+              ) : (
+                <Text style={styles.avatarText}>{user?.full_name?.charAt(0).toUpperCase() || '?'}</Text>
+              )}
             </View>
           </TouchableOpacity>
           <View style={{ flex: 1, marginLeft: 12 }}>
@@ -390,8 +394,10 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.18)',
     alignItems: 'center', justifyContent: 'center',
     borderWidth: 2, borderColor: 'rgba(255,255,255,0.25)',
+    overflow: 'hidden',
   },
   avatarText: { color: '#fff', fontWeight: '800', fontSize: 18 },
+  avatarImg: { width: '100%', height: '100%' },
 
   // Target card
   targetRow: { flexDirection: 'row', alignItems: 'center' },

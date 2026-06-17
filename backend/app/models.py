@@ -19,6 +19,7 @@ class User(Base):
     cluster_index = Column(Integer, nullable=True)
     is_active = Column(Integer, default=1)
     monthly_target = Column(Float, nullable=True, default=0)
+    avatar = Column(Text, nullable=True)  # base64 data URL (data:image/jpeg;base64,...)
     created_at = Column(DateTime, default=datetime.utcnow)
 
 
