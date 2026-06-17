@@ -150,7 +150,7 @@ export default function LoginScreen({ navigation }) {
           <InstallHint />
 
           <Text style={styles.footer}>
-            Backend: saha-satis-planlama-guncel.onrender.com
+            Backend: saha-satis-planlama.onrender.com
           </Text>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -165,7 +165,7 @@ export default function LoginScreen({ navigation }) {
 // kurulmuş) modda da görünmez.
 const EAS_BUILD_URL = 'https://expo.dev/accounts/tugceeeeeeee/projects/saha-satis-mobile/builds';
 const MOBILE_WEB_URL = 'https://saha-satis-mobile-web.onrender.com';
-const INSTALL_PAGE_URL = 'https://saha-satis-planlama-guncel.onrender.com/install';
+const INSTALL_PAGE_URL = 'https://saha-satis-planlama.onrender.com/install';
 
 function InstallHint() {
   const platform = useMemo(() => {

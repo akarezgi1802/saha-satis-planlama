@@ -1,7 +1,11 @@
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-export const API_BASE_URL = 'https://saha-satis-planlama-guncel.onrender.com/api';
+// Web admin paneli ile AYNI backend (saha-satis-planlama.onrender.com) — aynı
+// Neon DB. Önceden mobile, eski staging deploy'una (saha-satis-planlama-guncel)
+// bağlanıyordu; web admin'de yapılan değişiklikler (şifre dahil) mobile'a
+// yansımıyordu çünkü iki backend farklı DB kullanıyordu.
+export const API_BASE_URL = 'https://saha-satis-planlama.onrender.com/api';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
