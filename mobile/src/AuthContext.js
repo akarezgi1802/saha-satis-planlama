@@ -50,10 +50,14 @@ export function AuthProvider({ children }) {
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     });
     const { access_token, user: u } = res.data;
-    await AsyncStorage.setItem('token', access_token);
-    await AsyncStorage.setItem('user', JSON.stringify(u));
+    // State önce — AsyncStorage.setItem büyük user objesi (avatar 3 MB+) ile
+    // localStorage quota'sı aşılıp patlasa bile login akışı tamamlansın.
+    // Önceki bug: setItem throw → setToken/setUser hiç çalışmıyor → 'Giriş
+    // başarısız' diye ekrana yansıyor, ama backend zaten 200 OK döndü.
     setToken(access_token);
     setUser(u);
+    try { await AsyncStorage.setItem('token', access_token); } catch (e) {}
+    try { await AsyncStorage.setItem('user', JSON.stringify(u)); } catch (e) {}
     return u;
   };
 
