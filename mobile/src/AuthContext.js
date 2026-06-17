@@ -67,8 +67,17 @@ export function AuthProvider({ children }) {
   const refreshUser = async () => {
     try {
       const res = await api.get('/auth/me');
-      await AsyncStorage.setItem('user', JSON.stringify(res.data));
+      // setUser ÖNCE — AsyncStorage başarısız olsa bile (örn. avatar
+      // yüklendiğinde localStorage quota aşımı) runtime state güncellenmeli.
+      // Önceki sıralama: setItem → setUser; setItem patlarsa setUser hiç
+      // çalışmıyordu, ekrandaki avatar görünmüyordu.
       setUser(res.data);
+      try {
+        await AsyncStorage.setItem('user', JSON.stringify(res.data));
+      } catch (storageErr) {
+        // Persist edemezsek de runtime state tutarlı; sonraki açılışta
+        // /auth/me ile yeniden çekilir.
+      }
     } catch (e) {}
   };
 

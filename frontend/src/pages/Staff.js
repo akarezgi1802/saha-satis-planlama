@@ -21,6 +21,10 @@ export default function Staff() {
   const [form, setForm] = useState({ full_name: "", email: "", password: "", company: "", role: "sales_rep", cluster_index: "" });
   const [saving, setSaving] = useState(false);
   const [planRegions, setPlanRegions] = useState(0);
+  // Yönetici kendi kendini silemesin diye current user kontrolü
+  const me = (() => {
+    try { return JSON.parse(localStorage.getItem("user") || "{}"); } catch { return {}; }
+  })();
 
   useEffect(() => {
     loadUsers();
@@ -227,6 +231,19 @@ export default function Staff() {
                       </td>
                       <td className="cell-right">
                         <button className="btn btn-ghost btn-sm" onClick={() => openEdit(u)}>Düzenle</button>
+                        {u.id !== me.id ? (
+                          <button
+                            className="btn btn-negative btn-sm"
+                            style={{ marginLeft: 4 }}
+                            onClick={() => handleDelete(u)}
+                            title="Yönetici hesabını sil"
+                          >Sil</button>
+                        ) : (
+                          <span
+                            style={{ marginLeft: 8, fontSize: 11, color: "#94a3b8", fontStyle: "italic" }}
+                            title="Kendinizi silemezsiniz"
+                          >siz</span>
+                        )}
                       </td>
                     </tr>
                   ))}

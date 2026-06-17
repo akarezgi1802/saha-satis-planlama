@@ -46,7 +46,11 @@ export default function ProfileScreen() {
         mediaTypes: ImagePicker.MediaTypeOptions?.Images || 'images',
         allowsEditing: true,
         aspect: [1, 1],
-        quality: 0.6,
+        // Avatar küçük gösterildiği için yüksek kalite gereksiz; 0.3 ile
+        // ~3 MB dosya ~500 KB'a iner — localStorage quota ve render
+        // performansı için kritik (avatar büyük olunca user object'i
+        // AsyncStorage'a yazılamıyor, state stale kalıyordu).
+        quality: 0.3,
         base64: true,
       };
       const res = fromCamera
