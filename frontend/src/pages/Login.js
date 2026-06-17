@@ -104,7 +104,7 @@ export default function Login({ onLogin }) {
               lineHeight: 1.45
             }}>
               Telefon kamerası ile okut<br/>
-              veya <a href="https://saha-satis-mobile-web.onrender.com/?logout=1" target="_blank" rel="noopener noreferrer" style={{ color: "#6366f1", fontWeight: 600 }}>mobil uygulamayı</a> aç
+              ve <a href="https://saha-satis-mobile-web.onrender.com/?logout=1" target="_blank" rel="noopener noreferrer" style={{ color: "#6366f1", fontWeight: 600 }}>mobil uygulamayı</a> aç
             </p>
           </div>
         </div>
