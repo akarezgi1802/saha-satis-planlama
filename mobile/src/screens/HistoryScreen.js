@@ -18,7 +18,7 @@ const DAY_NAMES_TR = ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 
 const MONTH_NAMES_TR = ['Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz', 'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara'];
 
 const RANGES = [
-  { key: '7', label: 'Son 7 gün' },
+  { key: 'today', label: 'Bugün' },
   { key: 'week', label: 'Bu hafta' },
   { key: 'month', label: 'Bu ay' },
 ];
@@ -49,10 +49,8 @@ function rangeBounds(key) {
   if (key === 'month') {
     return { start: new Date(today.getFullYear(), today.getMonth(), 1), end: today };
   }
-  // 7 gün
-  const start = new Date(today);
-  start.setDate(start.getDate() - 6);
-  return { start, end: today };
+  // 'today' (varsayılan): tek gün
+  return { start: today, end: today };
 }
 
 function fmtTime(iso) {
@@ -89,7 +87,7 @@ function fmtDateLabel(dateStr) {
 
 export default function HistoryScreen({ navigation }) {
   const insets = useSafeAreaInsets();
-  const [rangeKey, setRangeKey] = useState('7');
+  const [rangeKey, setRangeKey] = useState('today');
   const [visits, setVisits] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
