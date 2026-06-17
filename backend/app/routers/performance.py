@@ -788,10 +788,28 @@ def admin_list_visits(
         q = q.filter(SalesVisit.visit_date <= end_date)
 
     visits = q.order_by(SalesVisit.visit_date.desc()).limit(500).all()
+
+    # N+1 önle: ihtiyaç olan müşteri/kullanıcı/foto sayılarını toplu çek
+    cust_ids = {v.customer_id for v in visits}
+    user_ids = {v.user_id for v in visits}
+    visit_ids = [v.id for v in visits]
+    custs_by_id = {c.id: c for c in db.query(Customer).filter(Customer.id.in_(cust_ids)).all()} if cust_ids else {}
+    users_by_id = {u.id: u for u in db.query(User).filter(User.id.in_(user_ids)).all()} if user_ids else {}
+    photo_counts = {}
+    if visit_ids:
+        from sqlalchemy import func as _f
+        rows = (
+            db.query(SalesVisitPhoto.visit_id, _f.count(SalesVisitPhoto.id))
+            .filter(SalesVisitPhoto.visit_id.in_(visit_ids))
+            .group_by(SalesVisitPhoto.visit_id)
+            .all()
+        )
+        photo_counts = {vid: cnt for vid, cnt in rows}
+
     result = []
     for v in visits:
-        cust = db.query(Customer).filter(Customer.id == v.customer_id).first()
-        user = db.query(User).filter(User.id == v.user_id).first()
+        cust = custs_by_id.get(v.customer_id)
+        user = users_by_id.get(v.user_id)
         duration_min = None
         if v.check_in_at and v.check_out_at:
             duration_min = round((v.check_out_at - v.check_in_at).total_seconds() / 60, 1)
@@ -809,8 +827,33 @@ def admin_list_visits(
             "check_out_at": v.check_out_at.isoformat() if v.check_out_at else None,
             "duration_minutes": duration_min,
             "distance_from_customer_m": round(v.distance_from_customer_m, 1) if v.distance_from_customer_m else None,
+            "photo_count": photo_counts.get(v.id, 0),
         })
     return result
+
+
+@router.get("/admin/visits/{visit_id}/photos")
+def admin_list_visit_photos(
+    visit_id: int,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(require_admin),
+):
+    """Admin için: herhangi bir ziyaretin tüm fotoğrafları (user_id filtresiz)."""
+    visit = db.query(SalesVisit).filter(SalesVisit.id == visit_id).first()
+    if not visit:
+        raise HTTPException(status_code=404, detail="Ziyaret bulunamadı")
+    photos = (
+        db.query(SalesVisitPhoto)
+        .filter(SalesVisitPhoto.visit_id == visit_id)
+        .order_by(SalesVisitPhoto.taken_at.desc())
+        .all()
+    )
+    return [{
+        "id": p.id,
+        "photo_data": p.photo_data,
+        "caption": p.caption,
+        "taken_at": p.taken_at.isoformat() if p.taken_at else None,
+    } for p in photos]
 
 
 # Türkçe ay kısaltmaları (1=Ocak)

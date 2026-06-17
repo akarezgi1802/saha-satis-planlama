@@ -18,6 +18,17 @@ export default function AdminPerformance() {
   const [comparison, setComparison] = useState(null);
   const [trend, setTrend] = useState(null);
   const [trendRep, setTrendRep] = useState(""); // "" = Tümü
+  const [photoModal, setPhotoModal] = useState(null); // {visit, photos, loading} | null
+
+  const openPhotos = useCallback(async (visit) => {
+    setPhotoModal({ visit, photos: [], loading: true });
+    try {
+      const r = await api.get(`/performance/admin/visits/${visit.id}/photos`);
+      setPhotoModal({ visit, photos: r.data || [], loading: false });
+    } catch (e) {
+      setPhotoModal({ visit, photos: [], loading: false, error: e.response?.data?.detail || "Yüklenemedi" });
+    }
+  }, []);
 
   const getDateRange = useCallback(() => {
     const today = new Date();
@@ -406,6 +417,7 @@ export default function AdminPerformance() {
                           <th>Çıkış</th>
                           <th>Süre</th>
                           <th>Mesafe</th>
+                          <th>Foto</th>
                           <th>Not</th>
                         </tr>
                       </thead>
@@ -431,6 +443,28 @@ export default function AdminPerformance() {
                             </td>
                             <td className="cell-mono" style={{ fontSize: 11 }}>
                               {v.distance_from_customer_m != null ? `${Math.round(v.distance_from_customer_m)}m` : "—"}
+                            </td>
+                            <td>
+                              {v.photo_count > 0 ? (
+                                <button
+                                  type="button"
+                                  onClick={() => openPhotos(v)}
+                                  title="Fotoğrafları gör"
+                                  style={{
+                                    display: "inline-flex", alignItems: "center", gap: 4,
+                                    padding: "2px 8px", borderRadius: 999,
+                                    background: "rgba(99,102,241,0.10)",
+                                    color: "var(--brand)",
+                                    fontSize: 12, fontWeight: 700,
+                                    border: "1px solid rgba(99,102,241,0.25)",
+                                    cursor: "pointer",
+                                  }}
+                                >
+                                  📷 {v.photo_count}
+                                </button>
+                              ) : (
+                                <span style={{ color: "#cbd5e1", fontSize: 11 }}>—</span>
+                              )}
                             </td>
                             <td className="cell-dim">{v.notes || "—"}</td>
                           </tr>
@@ -675,6 +709,101 @@ export default function AdminPerformance() {
             )}
           </>
         )}
+      </div>
+      <PhotoLightbox state={photoModal} onClose={() => setPhotoModal(null)} />
+    </div>
+  );
+}
+
+function PhotoLightbox({ state, onClose }) {
+  if (!state) return null;
+  const { visit, photos, loading, error } = state;
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: "fixed", inset: 0,
+        background: "rgba(15,23,42,0.78)",
+        backdropFilter: "blur(4px)",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        padding: 20, zIndex: 1000,
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          background: "#fff", borderRadius: 16,
+          width: "100%", maxWidth: 900, maxHeight: "90vh",
+          display: "flex", flexDirection: "column", overflow: "hidden",
+        }}
+      >
+        <div style={{
+          padding: "14px 20px", borderBottom: "1px solid var(--border)",
+          display: "flex", justifyContent: "space-between", alignItems: "center",
+        }}>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontSize: 15, fontWeight: 800, color: "#1e293b" }}>
+              📷 {visit.customer_name}
+            </div>
+            <div style={{ fontSize: 12, color: "#64748b", marginTop: 2 }}>
+              {visit.user_name} ·{" "}
+              {new Date(visit.visit_date + "T00:00:00").toLocaleDateString("tr-TR", { day: "numeric", month: "long", year: "numeric" })}
+              {visit.check_in_at ? ` · giriş ${new Date(visit.check_in_at).toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" })}` : ""}
+              {" · "}{Number(visit.sale_amount).toLocaleString("tr-TR")} ₺ satış
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            style={{
+              background: "transparent", border: "none", fontSize: 22,
+              color: "#64748b", cursor: "pointer", padding: 4,
+            }}
+            title="Kapat"
+          >×</button>
+        </div>
+        <div style={{ flex: 1, overflowY: "auto", padding: 20, background: "#f8fafc" }}>
+          {loading ? (
+            <div style={{ textAlign: "center", padding: 60, color: "#64748b" }}>Fotoğraflar yükleniyor…</div>
+          ) : error ? (
+            <div style={{ textAlign: "center", padding: 60, color: "var(--negative)" }}>{error}</div>
+          ) : photos.length === 0 ? (
+            <div style={{ textAlign: "center", padding: 60, color: "#94a3b8" }}>Bu ziyaret için fotoğraf yok.</div>
+          ) : (
+            <div style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
+              gap: 14,
+            }}>
+              {photos.map((p) => (
+                <a
+                  key={p.id}
+                  href={p.photo_data}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  title={p.caption || "Tam boyut için tıkla"}
+                  style={{
+                    display: "block",
+                    background: "#fff", borderRadius: 12,
+                    border: "1px solid var(--border)", overflow: "hidden",
+                    textDecoration: "none", color: "inherit",
+                  }}
+                >
+                  <img
+                    src={p.photo_data}
+                    alt={p.caption || "Ziyaret fotoğrafı"}
+                    style={{ width: "100%", height: 180, objectFit: "cover", display: "block" }}
+                  />
+                  <div style={{ padding: 8, fontSize: 11, color: "#64748b" }}>
+                    {p.caption ? (
+                      <div style={{ fontWeight: 600, color: "#1e293b", marginBottom: 2 }}>{p.caption}</div>
+                    ) : null}
+                    {p.taken_at ? new Date(p.taken_at).toLocaleString("tr-TR", { dateStyle: "short", timeStyle: "short" }) : ""}
+                  </div>
+                </a>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
