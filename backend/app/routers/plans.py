@@ -156,13 +156,17 @@ def get_plan_results(plan_id: int, db: Session = Depends(get_db)):
     if not plan:
         raise HTTPException(status_code=404, detail="Plan bulunamadı")
 
+    # Tek sorguda tüm müşterileri çek — N+1 önle (önceden her cluster/weekly/
+    # route_stop için ayrı Customer sorgusu yapılıyordu → 750+ round-trip).
+    custs_by_id = {c.id: c for c in db.query(Customer).all()}
+
     clusters = []
-    seen_customers = {}
+    seen_customers = set()
     for ca in db.query(ClusterAssignment).filter(ClusterAssignment.plan_id == plan_id).order_by(ClusterAssignment.id.desc()).all():
         if ca.customer_id in seen_customers:
             continue
-        seen_customers[ca.customer_id] = True
-        cust = db.query(Customer).filter(Customer.id == ca.customer_id).first()
+        seen_customers.add(ca.customer_id)
+        cust = custs_by_id.get(ca.customer_id)
         clusters.append(ClusterAssignmentOut(
             customer_id=ca.customer_id,
             customer_name=cust.name if cust else "",
@@ -175,7 +179,7 @@ def get_plan_results(plan_id: int, db: Session = Depends(get_db)):
 
     weekly = []
     for wa in db.query(WeeklyAssignment).filter(WeeklyAssignment.plan_id == plan_id).all():
-        cust = db.query(Customer).filter(Customer.id == wa.customer_id).first()
+        cust = custs_by_id.get(wa.customer_id)
         weekly.append(WeeklyAssignmentOut(
             customer_id=wa.customer_id,
             customer_name=cust.name if cust else "",
@@ -186,11 +190,19 @@ def get_plan_results(plan_id: int, db: Session = Depends(get_db)):
             visit_frequency=cust.visit_frequency if cust else 0,
         ))
 
+    # RouteStop'ları da tek sorguda al, daily_route_id'ye göre grupla
+    daily_routes = db.query(DailyRoute).filter(DailyRoute.plan_id == plan_id).all()
+    dr_ids = [dr.id for dr in daily_routes]
+    stops_by_dr = {}
+    if dr_ids:
+        for s in db.query(RouteStop).filter(RouteStop.daily_route_id.in_(dr_ids)).order_by(RouteStop.visit_order).all():
+            stops_by_dr.setdefault(s.daily_route_id, []).append(s)
+
     routes = []
-    for dr in db.query(DailyRoute).filter(DailyRoute.plan_id == plan_id).all():
+    for dr in daily_routes:
         stops = []
-        for s in db.query(RouteStop).filter(RouteStop.daily_route_id == dr.id).order_by(RouteStop.visit_order).all():
-            cust = db.query(Customer).filter(Customer.id == s.customer_id).first()
+        for s in stops_by_dr.get(dr.id, []):
+            cust = custs_by_id.get(s.customer_id)
             stops.append(RouteStopOut(
                 visit_order=s.visit_order, customer_id=s.customer_id,
                 customer_name=cust.name if cust else "",
@@ -225,12 +237,38 @@ def get_my_plan(
 
     ci = user.cluster_index
 
-    clusters = []
-    for ca in db.query(ClusterAssignment).filter(
+    # ST sadece kendi bölgesinin müşterilerini ihtiyaç duyar — yine de tek
+    # sorguda alıp dict'le indeksle, N+1 önle.
+    cas = db.query(ClusterAssignment).filter(
         ClusterAssignment.plan_id == plan_id,
         ClusterAssignment.cluster_index == ci,
-    ).all():
-        cust = db.query(Customer).filter(Customer.id == ca.customer_id).first()
+    ).all()
+    was = db.query(WeeklyAssignment).filter(
+        WeeklyAssignment.plan_id == plan_id,
+        WeeklyAssignment.cluster_index == ci,
+    ).all()
+    daily_routes = db.query(DailyRoute).filter(
+        DailyRoute.plan_id == plan_id,
+        DailyRoute.cluster_index == ci,
+    ).all()
+    dr_ids = [dr.id for dr in daily_routes]
+    all_stops = []
+    if dr_ids:
+        all_stops = db.query(RouteStop).filter(
+            RouteStop.daily_route_id.in_(dr_ids)
+        ).order_by(RouteStop.visit_order).all()
+
+    needed_ids = set()
+    for ca in cas: needed_ids.add(ca.customer_id)
+    for wa in was: needed_ids.add(wa.customer_id)
+    for s in all_stops: needed_ids.add(s.customer_id)
+    custs_by_id = {}
+    if needed_ids:
+        custs_by_id = {c.id: c for c in db.query(Customer).filter(Customer.id.in_(needed_ids)).all()}
+
+    clusters = []
+    for ca in cas:
+        cust = custs_by_id.get(ca.customer_id)
         clusters.append(ClusterAssignmentOut(
             customer_id=ca.customer_id,
             customer_name=cust.name if cust else "",
@@ -242,11 +280,8 @@ def get_my_plan(
         ))
 
     weekly = []
-    for wa in db.query(WeeklyAssignment).filter(
-        WeeklyAssignment.plan_id == plan_id,
-        WeeklyAssignment.cluster_index == ci,
-    ).all():
-        cust = db.query(Customer).filter(Customer.id == wa.customer_id).first()
+    for wa in was:
+        cust = custs_by_id.get(wa.customer_id)
         weekly.append(WeeklyAssignmentOut(
             customer_id=wa.customer_id,
             customer_name=cust.name if cust else "",
@@ -257,14 +292,15 @@ def get_my_plan(
             visit_frequency=cust.visit_frequency if cust else 0,
         ))
 
+    stops_by_dr = {}
+    for s in all_stops:
+        stops_by_dr.setdefault(s.daily_route_id, []).append(s)
+
     routes = []
-    for dr in db.query(DailyRoute).filter(
-        DailyRoute.plan_id == plan_id,
-        DailyRoute.cluster_index == ci,
-    ).all():
+    for dr in daily_routes:
         stops = []
-        for s in db.query(RouteStop).filter(RouteStop.daily_route_id == dr.id).order_by(RouteStop.visit_order).all():
-            cust = db.query(Customer).filter(Customer.id == s.customer_id).first()
+        for s in stops_by_dr.get(dr.id, []):
+            cust = custs_by_id.get(s.customer_id)
             stops.append(RouteStopOut(
                 visit_order=s.visit_order, customer_id=s.customer_id,
                 customer_name=cust.name if cust else "",
